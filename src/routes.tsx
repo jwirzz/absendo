@@ -12,10 +12,9 @@ const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const Contact = lazy(() => import("./pages/Contact.tsx"));
 const Profile = lazy(() => import("./pages/Profile.tsx"));
 const AllAbsences = lazy(() => import("./pages/AllAbsences.tsx"));
-const MaintenancePage = lazy(() => import("./pages/Maintenance.tsx"));
-const PinTest = lazy(() => import("./pages/PinTest.tsx"));
 const DatenschutzPage = lazy(() => import("./pages/DatenschutzPage.tsx"));
 const BbzwAbsenzformular = lazy(() => import("./pages/BbzwAbsenzformular.tsx"));
+const Support = lazy(() => import("./pages/Support.tsx"));
 
 const Loading = () => <div className="flex justify-center items-center h-screen">Lade...</div>;
 
@@ -36,10 +35,9 @@ function AppRoutes() {
                     <Route path="/contact" element={<Contact />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/absences" element={<AllAbsences />} />
-                    <Route path="/maintenance" element={<MaintenancePage />} />
-                    <Route path="/pin-test" element={<PinTest />} />
                     <Route path="/datenschutz" element={<DatenschutzPage />} />
                     <Route path="/bbzw-absenzformular" element={<BbzwAbsenzformular />} />
+                    <Route path="/support" element={<Support />} />
                 </Routes>
             </Suspense>
         </Router>

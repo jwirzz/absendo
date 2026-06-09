@@ -10,19 +10,42 @@ export async function generatePdf(userData, form_data) {
     return  await getPdfData(userData, form_data);
 }
 
+export async function getAbsenceOptions(userData, dateValue) {
+    if (!userData?.calendar_url || !dateValue) {
+        return [];
+    }
+
+    const events = await getICALData(userData.calendar_url);
+    const date = new Date(dateValue);
+    const processedEvents = processEvents(events, date);
+
+    return processedEvents.map((event) => ({
+        ...event,
+        key: buildEventKey(event),
+    }));
+}
+
 async function getPdfData(userData, form_data) {
     const url = userData.calendar_url;
     const events = await getICALData(url);
     const date = new Date(form_data.date);
     getWeekday(date);
     const processedEvents = processEvents(events, date);
+    const selectedLessonKeys = Array.isArray(form_data.selectedLessonKeys) ? form_data.selectedLessonKeys : [];
+    const selectedEvents = selectedLessonKeys.length > 0
+        ? processedEvents.filter((event) => selectedLessonKeys.includes(buildEventKey(event)))
+        : processedEvents;
 
     if (processedEvents.length === 0) {
         const formattedDate = date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
         throw new Error(`Absendo findet keine Daten am ${formattedDate}`);
     }
 
-    const pdfForm = await fillForm(userData, processedEvents, form_data);
+    if (selectedEvents.length === 0) {
+        throw new Error('Bitte wähle mindestens eine Lektion aus');
+    }
+
+    const pdfForm = await fillForm(userData, selectedEvents, form_data);
     const pdfBlob = new Blob([pdfForm], { type: 'application/pdf' });
     if(!form_data.isDoNotSaveEnabled) {
         await savePdfInDB(pdfBlob, userData.id, form_data.fileName, date, form_data.reason);
@@ -66,7 +89,7 @@ function getWeekday(date) {
 }
 
 function filterEventsByDate(events, filterDatum) {
-    let array = [];
+    const array = [];
     for (const k in events) {
         if (events[k].type === 'VEVENT') {
             const date = new Date(events[k].start);
@@ -75,17 +98,28 @@ function filterEventsByDate(events, filterDatum) {
                 date.getMonth() === filterDatum.getMonth() &&
                 date.getFullYear() === filterDatum.getFullYear()
             ) {
-                let title = events[k].summary;
-                let classe = extractClasse(title);
-                let fach = title.split('-')[0];
-                let teacher = title.split('-').pop();
-                if(hasSpace(teacher) !== true) {
-                    let realteacher = teacher.split(' ')[0];
-                    let object = {datum: getFormattedDate(filterDatum), fach: fach, lehrer: realteacher, klasse: classe};
-                    array.push(object);
+                if (shouldSkipByMissingLocation(events[k])) {
+                    continue;
                 }
 
+                const title = events[k].summary || '';
+                if (shouldSkipByTeacherField(title)) {
+                    continue;
+                }
 
+                const parsed = parseLessonSummary(title);
+
+                if (isAssessmentEvent(title, parsed.fach)) {
+                    continue;
+                }
+
+                const object = {
+                    datum: getFormattedDate(filterDatum),
+                    fach: parsed.fach,
+                    lehrer: parsed.lehrer,
+                    klasse: parsed.klasse,
+                };
+                array.push(object);
             }
         }
     }
@@ -103,8 +137,164 @@ function getFormattedDate(date) {
     return `${formattedWeekday}, ${day}.${month}.${year}`;
 }
 
+function cleanToken(token) {
+    return token.replace(/[(),.;:]/g, '').trim();
+}
+
 function hasSpace(str) {
-    return str.includes(' ');
+    return /\s/.test((str || '').trim());
+}
+
+function shouldSkipByTeacherField(title) {
+    if (!title || typeof title !== 'string') {
+        return true;
+    }
+
+    const teacherPart = (title.split('-').pop() || '').trim();
+    if (!teacherPart) {
+        return true;
+    }
+
+    // Gleich wie früher: Einträge mit Leerzeichen im Lehrer-Feld verwerfen.
+    return hasSpace(teacherPart);
+}
+
+function getEventLocation(event) {
+    if (!event) return '';
+    if (typeof event.location === 'string') return event.location.trim();
+    if (event.location && typeof event.location.val === 'string') return event.location.val.trim();
+    return '';
+}
+
+function shouldSkipByMissingLocation(event) {
+    // In eurem Kalender: Tests/Prüfungen haben keinen Ort.
+    return getEventLocation(event) === '';
+}
+
+function normalizeTeacherToken(token) {
+    if (!token) return '';
+    const cleaned = cleanToken(token);
+    if (!cleaned) return '';
+
+    if (teachersData[cleaned]) {
+        return cleaned;
+    }
+
+    const titleCase = cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
+    if (teachersData[titleCase]) {
+        return titleCase;
+    }
+
+    return '';
+}
+
+function normalizeForMatch(text) {
+    return (text || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+}
+
+function isAssessmentEvent(title, fach) {
+    const normalizedTitle = normalizeForMatch(title);
+    const subjectName = getSubjectName(fach);
+    const normalizedSubjectName = normalizeForMatch(subjectName);
+
+    const keywordPatterns = [
+        'prufung',
+        'schlussprufung',
+        'aufnahmeprufung',
+        'zertifikat',
+        'test',
+        'tests',
+        'assessment',
+        'quiz',
+        'standort',
+        'probe',
+        'exam',
+    ];
+
+    if (keywordPatterns.some((keyword) => normalizedTitle.includes(keyword) || normalizedSubjectName.includes(keyword))) {
+        return true;
+    }
+
+    const firstPart = (title || '').split('-')[0]?.trim() || '';
+    const firstPartTokens = firstPart
+        .split(/\s+/)
+        .map((token) => token.trim().toUpperCase())
+        .filter(Boolean);
+
+    if (firstPartTokens.length > 1) {
+        const markerTokens = new Set(['SP', 'MP', 'ZP', 'AP', 'TEST']);
+        if (firstPartTokens.some((token) => markerTokens.has(token))) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function isClassLikeToken(token) {
+    return /[A-Z]-[A-Z]+\d{2}[a-zA-Z]+(?:-LO)?/.test(token) || /^[SWER]$/.test(token) || /\d/.test(token);
+}
+
+function parseLessonSummary(title) {
+    const fallback = {
+        fach: 'Unbekannt',
+        lehrer: 'Unbekannt',
+        klasse: '',
+    };
+
+    if (!title || typeof title !== 'string') {
+        return fallback;
+    }
+
+    const classe = extractClasse(title);
+    const parts = title
+        .split('-')
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+    const fach = parts[0] || fallback.fach;
+    const classTokens = new Set(
+        (classe || '')
+            .split(/[,\s-]+/)
+            .map((token) => token.trim())
+            .filter(Boolean)
+    );
+
+    const teacherCandidates = [];
+    for (const part of parts) {
+        const tokens = part.split(/\s+/).map((token) => cleanToken(token)).filter(Boolean);
+        teacherCandidates.push(...tokens);
+    }
+
+    let teacher = '';
+    for (const candidate of teacherCandidates) {
+        const normalized = normalizeTeacherToken(candidate);
+        if (normalized) {
+            teacher = normalized;
+            break;
+        }
+    }
+
+    if (!teacher) {
+        const fallbackTeacher = teacherCandidates.find((candidate) => {
+            if (!candidate) return false;
+            if (candidate === fach) return false;
+            if (classTokens.has(candidate)) return false;
+            if (isClassLikeToken(candidate)) return false;
+            return /^[A-Za-zÄÖÜäöü]{2,5}$/.test(candidate);
+        });
+
+        teacher = fallbackTeacher || fallback.lehrer;
+    }
+
+    return {
+        fach,
+        lehrer: teacher,
+        klasse: classe,
+    };
 }
 
 function removeDuplicatesWithCount(array) {
@@ -132,6 +322,10 @@ function removeDuplicatesWithCount(array) {
 function processEvents(events, filterDatum) {
     const filteredEvents = filterEventsByDate(events, filterDatum);
     return removeDuplicatesWithCount(filteredEvents);
+}
+
+function buildEventKey(event) {
+    return `${event.datum}|${event.fach}|${event.lehrer}|${event.klasse}`;
 }
 
 // To check the fields in the PDF

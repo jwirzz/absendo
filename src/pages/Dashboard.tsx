@@ -5,6 +5,7 @@ import DashboardLastAbsences from "../components/DashboardContent.tsx";
 import AuthWrapper from "../components/AuthWrapper.tsx";
 import { supabase } from "../supabaseClient.ts";
 import {User} from "@supabase/supabase-js";
+import { UserProfileProvider } from "../contexts/UserProfileContext.tsx";
 
 function Dashboard() {
     const [user, setUser] = useState<User | null>(null);
@@ -49,24 +50,38 @@ function Dashboard() {
     }
 
     const DashboardContent = () => (
-        <div className="min-h-screen bg-base-100">
+        <div className="min-h-screen bg-base-100 flex flex-col">
             <Navbar />
-            <DashboardHeader />
-            <DashboardLastAbsences />
+            <main className="flex-1">
+                <DashboardHeader />
+                <DashboardLastAbsences />
+            </main>
         </div>
     );
 
     return user ? (
         <AuthWrapper user={user}>
-            <DashboardContent />
+            <UserProfileProvider user={user}>
+                <DashboardContent />
+            </UserProfileProvider>
         </AuthWrapper>
     ) : (
-        <div className="min-h-screen bg-base-100">
+        <div className="min-h-screen bg-base-100 flex flex-col">
             <Navbar />
-            <div className="flex flex-col items-center justify-center py-10">
-                <h1 className="text-2xl font-bold">Please log in to access the dashboard</h1>
-                <a href="/login" className="btn btn-primary mt-4">Login</a>
-            </div>
+            <main className="flex flex-1 items-center justify-center px-4 py-10">
+                <div className="card w-full max-w-xl border border-base-300 bg-base-100 shadow-sm">
+                    <div className="card-body items-center text-center">
+                        <h1 className="text-2xl font-bold">Du bist nicht eingeloggt</h1>
+                        <p className="text-base-content/80">
+                            Melde dich an, um auf dein Dashboard und deine Absenzen zuzugreifen.
+                        </p>
+                        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                            <a href="/login" className="btn btn-primary">Jetzt einloggen</a>
+                            <a href="/signup" className="btn btn-ghost">Konto erstellen</a>
+                        </div>
+                    </div>
+                </div>
+            </main>
         </div>
     );
 }

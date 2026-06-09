@@ -1,70 +1,24 @@
-import {useEffect, useState, useCallback} from 'react';
-import {supabase} from "../supabaseClient.ts";
-import {User} from "@supabase/supabase-js";
-import EncryptionService from "../services/encryptionService.ts";
+import { useCallback, useState } from 'react';
 import NewAbsenceModal from "./NewAbsenceModal.tsx";
-
-interface UserProfile {
-    isFullNameEnabled?: boolean;
-    isFullSubjectEnabled?: boolean;
-    isDoNotSaveEnabled?: boolean;
-}
+import { useUserProfile } from "../contexts/UserProfileContext.tsx";
 
 function DashboardHeader() {
-
-    const [user, setUser] = useState<User | null>(null);
-    const [isFullNameEnabled, setIsFullNameEnabled] = useState(true);
-    const [isFullSubjectEnabled, setIsFullSubjectEnabled] = useState(false);
-    const [isDoNotSaveEnabled, setIsDoNotSaveEnabled] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [userData, setUserData] = useState<UserProfile | null>(null);
+    const { user, profile, refreshProfile } = useUserProfile();
 
-    useEffect(() => {
-        async function fetchUser() {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUser(user);
-        }
-        fetchUser();
-    }, []);
-
-    const fetchUserData = useCallback(async () => {
-        if (user) {
-            try {
-                const { data, error } = await supabase
-                    .from("profiles")
-                    .select("*")
-                    .eq("id", user.id)
-                    .single();
-
-                if (error) throw error;
-
-                const encryptionService = EncryptionService.getInstance();
-                const decryptedData = encryptionService.decryptProfileData(data) as unknown as UserProfile;
-                setUserData(decryptedData);
-
-                setIsFullNameEnabled(decryptedData.isFullNameEnabled || true);
-                setIsFullSubjectEnabled(decryptedData.isFullSubjectEnabled || false);
-                setIsDoNotSaveEnabled(decryptedData.isDoNotSaveEnabled || false);
-
-            } catch (err) {
-                console.error("Error fetching user data:", err);
-            }
-        }
-    }, [user]);
-
-    useEffect(() => {
-        fetchUserData();
-    }, [user, fetchUserData]);
+    const isFullNameEnabled = profile?.isFullNameEnabled ?? false;
+    const isFullSubjectEnabled = profile?.isFullSubjectEnabled ?? false;
+    const isDoNotSaveEnabled = profile?.isDoNotSaveEnabled ?? false;
 
     const openModal = async () => {
-        await fetchUserData();
+        await refreshProfile();
         setIsModalOpen(true);
     };
 
-    const closeModal = () => {
+    const closeModal = useCallback(() => {
         setIsModalOpen(false);
-        window.location.reload();
-    };
+        window.dispatchEvent(new Event('absendo:refresh-dashboard'));
+    }, []);
 
     return (
         <div className="p-6">
@@ -83,7 +37,7 @@ function DashboardHeader() {
                 isOpen={isModalOpen}
                 onClose={closeModal}
                 user={user}
-                userData={userData}
+                userData={profile}
                 isFullNameEnabled={isFullNameEnabled}
                 isFullSubjectEnabled={isFullSubjectEnabled}
                 isDoNotSaveEnabled={isDoNotSaveEnabled}

@@ -7,8 +7,10 @@ function Home() {
     return (
         <div className="min-h-screen bg-base-100">
             <Navbar />
-            <Hero />
-            <HomeContent />
+            <main id="main-content">
+                <Hero />
+                <HomeContent />
+            </main>
             <Footer />
         </div>
     );

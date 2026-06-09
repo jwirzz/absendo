@@ -94,6 +94,12 @@ const ROUTE_META: Record<string, Partial<RouteMeta>> = {
         robots: "index, follow",
         canonicalPath: "/datenschutz"
     },
+    "/support": {
+        title: "Support | Absendo",
+        description: "Unterstütze Absendo freiwillig und hilf mit, laufende Betriebskosten zu decken.",
+        robots: "index, follow",
+        canonicalPath: "/support"
+    },
     "/login": {
         title: "Login | Absendo",
         description: "Melde dich bei Absendo an, um deine BBZW-Absenzformulare zu verwalten.",

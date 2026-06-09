@@ -3,7 +3,7 @@ import E2EEModal from "./E2EEModal.tsx";
 
 interface PinEntryProps {
   isOpen: boolean;
-  onSubmit: (pin: string) => void;
+  onSubmit: (pin: string, rememberDevice: boolean) => void;
   onCancel: () => void;
   error?: string;
   loading?: boolean;
@@ -24,6 +24,7 @@ const PinEntry = ({
   const [localError, setLocalError] = useState('');
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [isE2EEModalOpen, setIsE2EEModalOpen] = useState(false);
+  const [rememberDevice, setRememberDevice] = useState(true);
 
   useEffect(() => {
     if (isOpen) {
@@ -31,6 +32,7 @@ const PinEntry = ({
       setConfirmPin(['', '', '', '', '', '']);
       setIsConfirming(false);
       setLocalError('');
+      setRememberDevice(true);
       setTimeout(() => {
         inputRefs.current[0]?.focus();
       }, 100);
@@ -137,7 +139,7 @@ const PinEntry = ({
       }
     }
 
-    onSubmit(currentPin);
+    onSubmit(currentPin, rememberDevice);
   };
 
   const handleBack = () => {
@@ -170,10 +172,10 @@ const PinEntry = ({
         <p className="text-center text-gray-600 mb-6">
           {isFirstTime 
             ? (isConfirming 
-              ? 'Bitte geben Sie Ihre PIN erneut ein' 
-              : 'Erstellen Sie eine 4-6 stellige PIN für zusätzliche Sicherheit'
+              ? 'Bitte gib deine PIN erneut ein' 
+              : 'Erstelle eine 4-6 stellige PIN für zusätzliche Sicherheit'
             )
-            : 'Geben Sie Ihre PIN ein, um fortzufahren'
+            : 'Gib deine PIN ein, um fortzufahren'
           }
         </p>
 
@@ -204,6 +206,19 @@ const PinEntry = ({
           <div className="text-error text-center mb-4 text-sm">
             {displayError}
           </div>
+        )}
+
+        {!isFirstTime && (
+          <label className="flex items-center gap-2 mb-4 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={rememberDevice}
+              onChange={(e) => setRememberDevice(e.target.checked)}
+              className="checkbox checkbox-sm"
+              disabled={loading}
+            />
+            Auf diesem Gerät angemeldet bleiben
+          </label>
         )}
 
         <div className="flex space-x-3">

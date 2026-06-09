@@ -1,23 +1,10 @@
-import {useEffect, useState} from "react";
-import {User} from "@supabase/supabase-js";
-import {supabase} from "../supabaseClient.ts";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../supabaseClient.ts";
 import EncryptionService from "../services/encryptionService.ts";
+import { useUserProfile } from "../contexts/UserProfileContext.tsx";
+import { UserProfile } from "../types/userProfile.ts";
 
 export const ProfilePage = () => {
-    interface UserProfile {
-        id: string;
-        first_name: string;
-        last_name: string;
-        birthday: string;
-        calendar_url: string;
-        first_name_trainer: string;
-        last_name_trainer: string;
-        phone_number_trainer: string;
-        email_trainer: string;
-        total_absences?: number;
-        time_saved_minutes?: number;
-    }
-
     interface FormData {
         id: string;
         first_name: string;
@@ -41,96 +28,81 @@ export const ProfilePage = () => {
         email_trainer?: string;
     }
 
-    const [user, setUser] = useState<User | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [userData, setUserData] = useState<UserProfile | null>(null);
+    const { user, profile, loading: profileLoading, refreshProfile } = useUserProfile();
+    const [absencesLoading, setAbsencesLoading] = useState(true);
+    const [totalAbsences, setTotalAbsences] = useState(0);
     const [formData, setFormData] = useState<FormData>({
-        id: '',
-        first_name: '',
-        last_name: '',
-        birthday: '',
-        calendar_url: '',
-        first_name_trainer: '',
-        last_name_trainer: '',
-        phone_number_trainer: '',
-        email_trainer: ''
+        id: "",
+        first_name: "",
+        last_name: "",
+        birthday: "",
+        calendar_url: "",
+        first_name_trainer: "",
+        last_name_trainer: "",
+        phone_number_trainer: "",
+        email_trainer: "",
     });
     const [errors, setErrors] = useState<FormErrors>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitSuccess, setSubmitSuccess] = useState(false);
 
     useEffect(() => {
-        async function fetchUser() {
+        async function fetchAbsenceCount() {
+            if (!user) {
+                setTotalAbsences(0);
+                setAbsencesLoading(false);
+                return;
+            }
+
+            setAbsencesLoading(true);
             try {
-                const {
-                    data: { user },
-                    error,
-                } = await supabase.auth.getUser();
+                const { data, error } = await supabase
+                    .from("pdf_files")
+                    .select("id")
+                    .eq("user_id", user.id);
+
                 if (error) throw error;
-                setUser(user);
-            } catch (err) {
-                console.error("Error fetching user:", err);
+                setTotalAbsences(data?.length || 0);
+            } catch (fetchError) {
+                console.error("Error fetching absences:", fetchError);
+                setTotalAbsences(0);
             } finally {
-                setLoading(false);
+                setAbsencesLoading(false);
             }
         }
-        fetchUser();
-    }, []);
 
-    useEffect(() => {
-        async function fetchUserData() {
-            if (user) {
-                try {
-                    const { data, error } = await supabase
-                        .from("profiles")
-                        .select("*")
-                        .eq("id", user.id)
-                        .single();
-
-                    if (error) throw error;
-
-                    // Decrypt the data if it's encrypted
-                    const encryptionService = EncryptionService.getInstance();
-                    const decryptedData = encryptionService.decryptProfileData(data) as unknown as UserProfile;
-
-                    const { data: absencesData, error: absencesError } = await supabase
-                        .from("pdf_files")
-                        .select("id")
-                        .eq("user_id", user.id);
-
-                    if (absencesError) throw absencesError;
-
-                    const enhancedData: UserProfile = {
-                        ...decryptedData,
-                        total_absences: absencesData?.length || 0,
-                        time_saved_minutes: (absencesData?.length || 0) * 3
-                    };
-
-                    setUserData(enhancedData);
-
-                    setFormData({
-                        id: user.id,
-                        first_name: decryptedData.first_name || '',
-                        last_name: decryptedData.last_name || '',
-                        birthday: decryptedData.birthday || '',
-                        calendar_url: decryptedData.calendar_url || '',
-                        first_name_trainer: decryptedData.first_name_trainer || '',
-                        last_name_trainer: decryptedData.last_name_trainer || '',
-                        phone_number_trainer: decryptedData.phone_number_trainer || '',
-                        email_trainer: decryptedData.email_trainer || ''
-                    });
-                } catch (err) {
-                    console.error("Error fetching user data:", err);
-                }
-            }
-        }
-        fetchUserData();
+        void fetchAbsenceCount();
     }, [user]);
 
+    useEffect(() => {
+        if (!profile || !user) return;
+
+        setFormData({
+            id: user.id,
+            first_name: profile.first_name || "",
+            last_name: profile.last_name || "",
+            birthday: profile.birthday || "",
+            calendar_url: profile.calendar_url || "",
+            first_name_trainer: profile.first_name_trainer || "",
+            last_name_trainer: profile.last_name_trainer || "",
+            phone_number_trainer: profile.phone_number_trainer || "",
+            email_trainer: profile.email_trainer || "",
+        });
+    }, [profile, user]);
+
+    const displayData = useMemo<UserProfile | null>(() => {
+        if (!profile) return null;
+        return {
+            ...profile,
+            total_absences: totalAbsences,
+            time_saved_minutes: totalAbsences * 5,
+        };
+    }, [profile, totalAbsences]);
+
     function getUserShortName() {
-        if (!userData) return "NN";
-        const first = userData.first_name?.charAt(0).toUpperCase() || "";
-        const last = userData.last_name?.charAt(0).toUpperCase() || "";
+        if (!displayData) return "NN";
+        const first = displayData.first_name?.charAt(0).toUpperCase() || "";
+        const last = displayData.last_name?.charAt(0).toUpperCase() || "";
         return `${first}${last}`;
     }
 
@@ -148,25 +120,25 @@ export const ProfilePage = () => {
     const validateForm = (): boolean => {
         const newErrors: FormErrors = {};
 
-        if (!formData.first_name.trim()) newErrors.first_name = 'Vorname ist erforderlich';
-        if (!formData.last_name.trim()) newErrors.last_name = 'Nachname ist erforderlich';
-        if (!formData.birthday) newErrors.birthday = 'Geburtsdatum ist erforderlich';
+        if (!formData.first_name.trim()) newErrors.first_name = "Vorname ist erforderlich";
+        if (!formData.last_name.trim()) newErrors.last_name = "Nachname ist erforderlich";
+        if (!formData.birthday) newErrors.birthday = "Geburtsdatum ist erforderlich";
 
         if (!formData.calendar_url.trim()) {
-            newErrors.calendar_url = 'Kalender-URL ist erforderlich';
-        } else if (!formData.calendar_url.startsWith('http')) {
-            newErrors.calendar_url = 'Gültige URL erforderlich (beginnt mit https://)';
-        } else if (!formData.calendar_url.startsWith('https://schulnetz.lu.ch/bbzw')) {
-            newErrors.calendar_url = 'Aktuell unterstützen wir nur Kalender-URLs des BBZW';
+            newErrors.calendar_url = "Kalender-URL ist erforderlich";
+        } else if (!formData.calendar_url.startsWith("http")) {
+            newErrors.calendar_url = "Gültige URL erforderlich (beginnt mit https://)";
+        } else if (!formData.calendar_url.startsWith("https://schulnetz.lu.ch/bbzw")) {
+            newErrors.calendar_url = "Aktuell unterstützen wir nur Kalender-URLs des BBZW";
         }
 
-        if (!formData.first_name_trainer.trim()) newErrors.first_name_trainer = 'Vorname des Ausbilders ist erforderlich';
-        if (!formData.last_name_trainer.trim()) newErrors.last_name_trainer = 'Nachname des Ausbilders ist erforderlich';
-        if (!formData.phone_number_trainer.trim()) newErrors.phone_number_trainer = 'Telefonnummer ist erforderlich';
+        if (!formData.first_name_trainer.trim()) newErrors.first_name_trainer = "Vorname des Ausbilders ist erforderlich";
+        if (!formData.last_name_trainer.trim()) newErrors.last_name_trainer = "Nachname des Ausbilders ist erforderlich";
+        if (!formData.phone_number_trainer.trim()) newErrors.phone_number_trainer = "Telefonnummer ist erforderlich";
         if (!formData.email_trainer.trim()) {
-            newErrors.email_trainer = 'E-Mail ist erforderlich';
+            newErrors.email_trainer = "E-Mail ist erforderlich";
         } else if (!/\S+@\S+\.\S+/.test(formData.email_trainer)) {
-            newErrors.email_trainer = 'Gültige E-Mail-Adresse erforderlich';
+            newErrors.email_trainer = "Gültige E-Mail-Adresse erforderlich";
         }
 
         setErrors(newErrors);
@@ -180,13 +152,16 @@ export const ProfilePage = () => {
             return;
         }
 
+        if (!user) {
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             const encryptionService = EncryptionService.getInstance();
-            
-            // Encrypt the form data before storing
-            const dataToStore =  await encryptionService.encryptProfileData({
-                id: formData.id,
+
+            const dataToStore = await encryptionService.encryptProfileData({
+                id: formData.id || user.id,
                 first_name: formData.first_name,
                 last_name: formData.last_name,
                 birthday: formData.birthday,
@@ -202,23 +177,22 @@ export const ProfilePage = () => {
                 .upsert(dataToStore);
 
             if (error) throw error;
+            await refreshProfile();
             setSubmitSuccess(true);
-
-            setUserData({
-                ...formData as UserProfile
-            });
 
             setTimeout(() => {
                 setSubmitSuccess(false);
             }, 3000);
-        } catch (err) {
-            console.error("Error updating profile:", err);
+        } catch (submitError) {
+            console.error("Error updating profile:", submitError);
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    if (loading) {
+    const isLoading = profileLoading || absencesLoading;
+
+    if (isLoading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
                 <span className="loading loading-spinner loading-lg" />
@@ -226,7 +200,7 @@ export const ProfilePage = () => {
         );
     }
 
-    if (!userData) {
+    if (!displayData) {
         return <div className="text-center text-red-500 mt-10">Benutzerdaten konnten nicht geladen werden.</div>;
     }
 
@@ -240,9 +214,9 @@ export const ProfilePage = () => {
                                 <div className="flex items-center justify-center w-full h-full">{getUserShortName()}</div>
                             </div>
                         </div>
-                        <h2 className="card-title mt-4">{userData.first_name} {userData.last_name}</h2>
-                        <p className="text-sm text-gray-500">{userData.birthday}</p>
-                        <p className="text-sm text-gray-500">Ausbilder: {userData.first_name_trainer} {userData.last_name_trainer}</p>
+                        <h2 className="card-title mt-4">{displayData.first_name} {displayData.last_name}</h2>
+                        <p className="text-sm text-gray-500">{displayData.birthday}</p>
+                        <p className="text-sm text-gray-500">Ausbilder: {displayData.first_name_trainer} {displayData.last_name_trainer}</p>
                     </div>
                 </div>
 
@@ -253,18 +227,18 @@ export const ProfilePage = () => {
                         <div className="stats stats-vertical lg:stats-horizontal shadow mt-4">
                             <div className="stat">
                                 <div className="stat-title">Generierte Absenzen</div>
-                                <div className="stat-value text-primary">{userData.total_absences || 0}</div>
+                                <div className="stat-value text-primary">{displayData.total_absences || 0}</div>
                                 <div className="stat-desc">Seit der Registrierung</div>
                             </div>
 
                             <div className="stat">
                                 <div className="stat-title">Zeit gespart</div>
                                 <div className="stat-value text-accent">
-                                    {userData.time_saved_minutes
-                                        ? userData.time_saved_minutes >= 60
-                                            ? `${Math.floor(userData.time_saved_minutes / 60)} Std. ${userData.time_saved_minutes % 60} Min.`
-                                            : `${userData.time_saved_minutes} Min.`
-                                        : '0 Min.'
+                                    {displayData.time_saved_minutes
+                                        ? displayData.time_saved_minutes >= 60
+                                            ? `${Math.floor(displayData.time_saved_minutes / 60)} Std. ${displayData.time_saved_minutes % 60} Min.`
+                                            : `${displayData.time_saved_minutes} Min.`
+                                        : "0 Min."
                                     }
                                 </div>
                                 <div className="stat-desc">Mit Absendo vs. manuell</div>
@@ -272,7 +246,7 @@ export const ProfilePage = () => {
                         </div>
 
                         <div className="mt-4 text-sm text-gray-600">
-                            <p>Mit Absendo sparst du dir durchschnittlich 3 Minuten pro Absenz</p>
+                            <p>Mit Absendo sparst du dir durchschnittlich 5 Minuten pro Absenz</p>
                         </div>
                     </div>
                 </div>
@@ -295,7 +269,7 @@ export const ProfilePage = () => {
                                     value={formData.first_name}
                                     onChange={handleChange}
                                     placeholder="Dein Vorname"
-                                    className={`input input-bordered w-full ${errors.first_name ? 'input-error' : ''}`}
+                                    className={`input input-bordered w-full ${errors.first_name ? "input-error" : ""}`}
                                 />
                                 {errors.first_name && <span className="text-error text-xs mt-1">{errors.first_name}</span>}
                             </div>
@@ -310,7 +284,7 @@ export const ProfilePage = () => {
                                     value={formData.last_name}
                                     onChange={handleChange}
                                     placeholder="Dein Nachname"
-                                    className={`input input-bordered w-full ${errors.last_name ? 'input-error' : ''}`}
+                                    className={`input input-bordered w-full ${errors.last_name ? "input-error" : ""}`}
                                 />
                                 {errors.last_name && <span className="text-error text-xs mt-1">{errors.last_name}</span>}
                             </div>
@@ -324,7 +298,7 @@ export const ProfilePage = () => {
                                 name="birthday"
                                 value={formData.birthday}
                                 onChange={handleChange}
-                                className={`input input-bordered w-full ${errors.birthday ? 'input-error' : ''}`}
+                                className={`input input-bordered w-full ${errors.birthday ? "input-error" : ""}`}
                             />
                             {errors.birthday && <span className="text-error text-xs mt-1">{errors.birthday}</span>}
                         </div>
@@ -346,7 +320,7 @@ export const ProfilePage = () => {
                                     value={formData.calendar_url}
                                     onChange={handleChange}
                                     placeholder="https://schulnetz.lu.ch/bbzw/..."
-                                    className={`input input-bordered w-full ${errors.calendar_url ? 'input-error' : ''}`}
+                                    className={`input input-bordered w-full ${errors.calendar_url ? "input-error" : ""}`}
                                 />
                                 {errors.calendar_url && <span className="text-error text-xs mt-1">{errors.calendar_url}</span>}
                                 <br />
@@ -358,11 +332,8 @@ export const ProfilePage = () => {
                             <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                                 <div className="flex items-start">
                                     <div className="flex-shrink-0">
-                                        <svg className="w-5 h-5 text-blue-600" fill="currentColor"
-                                             viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                            <path fillRule="evenodd"
-                                                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                                                  clipRule="evenodd"></path>
+                                        <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"></path>
                                         </svg>
                                     </div>
                                     <div className="ml-3">
@@ -397,7 +368,7 @@ export const ProfilePage = () => {
                                         value={formData.first_name_trainer}
                                         onChange={handleChange}
                                         placeholder="Vorname"
-                                        className={`input input-bordered w-full ${errors.first_name_trainer ? 'input-error' : ''}`}
+                                        className={`input input-bordered w-full ${errors.first_name_trainer ? "input-error" : ""}`}
                                     />
                                     {errors.first_name_trainer && <span className="text-error text-xs mt-1">{errors.first_name_trainer}</span>}
                                 </div>
@@ -412,7 +383,7 @@ export const ProfilePage = () => {
                                         value={formData.last_name_trainer}
                                         onChange={handleChange}
                                         placeholder="Nachname"
-                                        className={`input input-bordered w-full ${errors.last_name_trainer ? 'input-error' : ''}`}
+                                        className={`input input-bordered w-full ${errors.last_name_trainer ? "input-error" : ""}`}
                                     />
                                     {errors.last_name_trainer && <span className="text-error text-xs mt-1">{errors.last_name_trainer}</span>}
                                 </div>
@@ -428,7 +399,7 @@ export const ProfilePage = () => {
                                     value={formData.phone_number_trainer}
                                     onChange={handleChange}
                                     placeholder="+41 79 123 45 67"
-                                    className={`input input-bordered w-full ${errors.phone_number_trainer ? 'input-error' : ''}`}
+                                    className={`input input-bordered w-full ${errors.phone_number_trainer ? "input-error" : ""}`}
                                 />
                                 {errors.phone_number_trainer && <span className="text-error text-xs mt-1">{errors.phone_number_trainer}</span>}
                             </div>
@@ -443,7 +414,7 @@ export const ProfilePage = () => {
                                     value={formData.email_trainer}
                                     onChange={handleChange}
                                     placeholder="ausbilder@beispiel.com"
-                                    className={`input input-bordered w-full ${errors.email_trainer ? 'input-error' : ''}`}
+                                    className={`input input-bordered w-full ${errors.email_trainer ? "input-error" : ""}`}
                                 />
                                 {errors.email_trainer && <span className="text-error text-xs mt-1">{errors.email_trainer}</span>}
                             </div>
@@ -466,13 +437,13 @@ export const ProfilePage = () => {
                         className="btn btn-primary"
                         disabled={isSubmitting}
                     >
-                        {isSubmitting ?
-                            <><span className="loading loading-spinner loading-sm"></span> Speichern...</> :
-                            'Änderungen speichern'
+                        {isSubmitting
+                            ? <><span className="loading loading-spinner loading-sm"></span> Speichern...</>
+                            : "Änderungen speichern"
                         }
                     </button>
                 </div>
             </form>
         </div>
     );
-}
+};

@@ -206,7 +206,7 @@ function AllAbsencesComponent() {
                                                     className="btn btn-xs btn-error"
                                                     onClick={async (e) => {
                                                         e.preventDefault();
-                                                        if (confirm('Sind Sie sicher, dass Sie diese Absenz löschen möchten?')) {
+                                                        if (confirm('Bist du sicher, dass du diese Absenz löschen möchtest?')) {
                                                             await deletePdf(pdf);
                                                         }
                                                     }}

@@ -13,12 +13,21 @@ interface DecryptionResult {
     error?: string;
 }
 
+interface StoredUserKey {
+    userId: string;
+    key: string;
+    expiresAt: number;
+}
+
 class EncryptionService {
     private static instance: EncryptionService;
     private userKey: string | null = null;
     saltManager: SaltManager;
     private currentUserId: string | null = null;
-    
+    private readonly sessionKeyStorageKey = "absendo_session_user_key";
+    private readonly persistentKeyStoragePrefix = "absendo_persistent_user_key:";
+    private readonly persistentKeyTtlMs = 90 * 24 * 60 * 60 * 1000;
+    private readonly persistentKeyExtensionMs = 10 * 24 * 60 * 60 * 1000;
 
     private constructor() {
         this.saltManager = SaltManager.getInstance();
@@ -29,6 +38,106 @@ class EncryptionService {
             EncryptionService.instance = new EncryptionService();
         }
         return EncryptionService.instance;
+    }
+
+    private getPersistentKeyStorageKey(userId: string): string {
+        return `${this.persistentKeyStoragePrefix}${userId}`;
+    }
+
+    private parseStoredKey(rawStoredKey: string | null, expectedUserId: string): StoredUserKey | null {
+        if (!rawStoredKey) {
+            return null;
+        }
+
+        try {
+            const parsed = JSON.parse(rawStoredKey) as StoredUserKey;
+            if (
+                parsed &&
+                parsed.userId === expectedUserId &&
+                typeof parsed.key === "string" &&
+                typeof parsed.expiresAt === "number" &&
+                parsed.expiresAt > Date.now()
+            ) {
+                return parsed;
+            }
+        } catch {
+            return null;
+        }
+
+        return null;
+    }
+
+    private buildStoredUserKey(userId: string): StoredUserKey | null {
+        if (!this.userKey) {
+            return null;
+        }
+
+        return {
+            userId,
+            key: this.userKey,
+            expiresAt: Date.now() + this.persistentKeyTtlMs
+        };
+    }
+
+    private extendStoredKeyValidity(storedKey: StoredUserKey): StoredUserKey {
+        const base = Math.max(storedKey.expiresAt, Date.now());
+        return {
+            ...storedKey,
+            expiresAt: base + this.persistentKeyExtensionMs
+        };
+    }
+
+    storeCurrentKey(userId: string, rememberDevice = true): boolean {
+        const storedKey = this.buildStoredUserKey(userId);
+        if (!storedKey) {
+            return false;
+        }
+
+        this.currentUserId = userId;
+        const serialized = JSON.stringify(storedKey);
+        sessionStorage.setItem(this.sessionKeyStorageKey, serialized);
+
+        const persistentKeyStorageKey = this.getPersistentKeyStorageKey(userId);
+        if (rememberDevice) {
+            localStorage.setItem(persistentKeyStorageKey, serialized);
+        } else {
+            localStorage.removeItem(persistentKeyStorageKey);
+        }
+
+        return true;
+    }
+
+    restoreKeyForUser(userId: string): boolean {
+        const sessionStoredKey = this.parseStoredKey(
+            sessionStorage.getItem(this.sessionKeyStorageKey),
+            userId
+        );
+
+        if (sessionStoredKey) {
+            this.userKey = sessionStoredKey.key;
+            this.currentUserId = userId;
+            return true;
+        }
+
+        const persistentStorageKey = this.getPersistentKeyStorageKey(userId);
+        const persistentStoredKey = this.parseStoredKey(
+            localStorage.getItem(persistentStorageKey),
+            userId
+        );
+
+        if (persistentStoredKey) {
+            this.userKey = persistentStoredKey.key;
+            this.currentUserId = userId;
+            const extendedStoredKey = this.extendStoredKeyValidity(persistentStoredKey);
+            const serializedExtendedKey = JSON.stringify(extendedStoredKey);
+            sessionStorage.setItem(this.sessionKeyStorageKey, serializedExtendedKey);
+            localStorage.setItem(persistentStorageKey, serializedExtendedKey);
+            return true;
+        }
+
+        sessionStorage.removeItem(this.sessionKeyStorageKey);
+        localStorage.removeItem(persistentStorageKey);
+        return false;
     }
 
     async initializeKeyForOAuthWithPin(userId: string, userEmail: string, pin: string): Promise<void> {
@@ -74,7 +183,7 @@ class EncryptionService {
     }
 
 
-        async verifyPin(userId: string, userEmail: string, pin: string): Promise<boolean> {
+    async verifyPin(userId: string, userEmail: string, pin: string): Promise<boolean> {
         try {
             const { data: profileData, error } = await supabase
                 .from('profiles')
@@ -99,6 +208,7 @@ class EncryptionService {
 
             if (pinHash === profileData.pin_hash) {
                 this.userKey = userKey;
+                this.currentUserId = userId;
                 return true;
             }
 
@@ -111,14 +221,15 @@ class EncryptionService {
 
     async clearKey(): Promise<void> {
         this.userKey = null;
+        sessionStorage.removeItem(this.sessionKeyStorageKey);
 
         if (this.currentUserId) {
             await this.saltManager.clearSaltForUser(this.currentUserId);
+            localStorage.removeItem(this.getPersistentKeyStorageKey(this.currentUserId));
         }
-        const savedPin = sessionStorage.getItem("userPin");
-        if(savedPin) {
-            sessionStorage.removeItem("userPin");
-        }
+
+        sessionStorage.removeItem("userPin");
+
         const savedKey = sessionStorage.getItem("userKey");
         if(savedKey) {
             sessionStorage.removeItem("userKey");
