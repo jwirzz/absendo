@@ -156,30 +156,35 @@ const PinEntry = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-secondary/40 p-4 backdrop-blur-sm">
       <E2EEModal
           isOpen={isE2EEModalOpen}
           onClose={() => setIsE2EEModalOpen(false)}
       />
-      <div className="bg-base-100 rounded-lg shadow-xl p-8 w-full max-w-md mx-4">
-        <h2 className="text-2xl font-bold text-center mb-2">
-          {isFirstTime 
-            ? (isConfirming ? 'PIN bestätigen' : 'Sicherheits-PIN festlegen') 
-            : 'PIN eingeben'
-          }
-        </h2>
-        
-        <p className="text-center text-gray-600 mb-6">
-          {isFirstTime 
-            ? (isConfirming 
-              ? 'Bitte gib deine PIN erneut ein' 
-              : 'Erstelle eine 4-6 stellige PIN für zusätzliche Sicherheit'
-            )
-            : 'Gib deine PIN ein, um fortzufahren'
-          }
-        </p>
+      <div className="card w-full max-w-md bg-base-100 p-8 shadow-soft-xl" style={{ animation: "heroIn 0.3s var(--ease-out) both" }}>
+        <div className="mb-5 flex flex-col items-center text-center">
+          <div className="icon-tile mb-4 h-12 w-12" style={{ background: "color-mix(in oklab, var(--color-primary) 14%, white)", color: "var(--color-primary)" }}>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className="h-6 w-6">
+              <rect x="4" y="10" width="16" height="11" rx="2.5" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 10V7a4 4 0 1 1 8 0v3" />
+              <circle cx="12" cy="15.5" r="1.4" fill="currentColor" stroke="none" />
+            </svg>
+          </div>
+          <h2 className="display-md text-2xl">
+            {isFirstTime
+              ? (isConfirming ? 'PIN bestätigen' : 'Sicherheits-PIN festlegen')
+              : 'PIN eingeben'}
+          </h2>
+          <p className="measure mt-2 text-sm text-base-content/60">
+            {isFirstTime
+              ? (isConfirming
+                ? 'Bitte gib deine PIN erneut ein.'
+                : 'Erstelle eine PIN mit 4 bis 6 Ziffern für die lokale Verschlüsselung.')
+              : 'Gib deine PIN ein, um fortzufahren.'}
+          </p>
+        </div>
 
-        <div className="flex justify-center space-x-2 mb-6">
+        <div className={["mb-5 flex justify-center gap-2 sm:gap-2.5", displayError ? "shake" : ""].join(" ")}>
           {currentArray.map((digit, index) => (
             <input
               key={index}
@@ -192,9 +197,10 @@ const PinEntry = ({
               onChange={(e) => handleInputChange(index, e.target.value)}
               onKeyDown={(e) => handleKeyDown(index, e)}
               onPaste={handlePaste}
-              className={`w-12 h-12 text-center text-xl font-bold border-2 rounded-lg focus:outline-none focus:border-primary ${
-                displayError ? 'border-error' : 'border-gray-300'
-              }`}
+              className={[
+                "h-14 w-11 rounded-xl border-2 bg-base-100 text-center text-2xl font-bold tabular-nums outline-none transition-[border-color,box-shadow,transform] duration-150 focus:border-primary focus:ring-4 focus:ring-primary/15 sm:w-12",
+                displayError ? "border-error" : digit ? "border-secondary" : "border-base-300",
+              ].join(" ")}
               disabled={loading}
               autoComplete="off"
               data-form-type="other"
@@ -203,36 +209,38 @@ const PinEntry = ({
         </div>
 
         {displayError && (
-          <div className="text-error text-center mb-4 text-sm">
-            {displayError}
-          </div>
+          <div className="mb-4 text-center text-sm font-medium text-error">{displayError}</div>
         )}
 
         {!isFirstTime && (
-          <label className="flex items-center gap-2 mb-4 text-sm text-gray-600">
+          <label className="mb-5 flex cursor-pointer items-center justify-center gap-2.5 text-sm text-base-content/70">
             <input
               type="checkbox"
               checked={rememberDevice}
               onChange={(e) => setRememberDevice(e.target.checked)}
-              className="checkbox checkbox-sm"
+              className="toggle toggle-primary toggle-sm"
               disabled={loading}
             />
             Auf diesem Gerät angemeldet bleiben
           </label>
         )}
 
-        <div className="flex space-x-3">
+        {isFirstTime && !isConfirming && (
+          <div className="mb-5 flex items-start gap-2.5 rounded-2xl bg-warning/15 px-4 py-3 text-sm text-base-content/80">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mt-0.5 h-5 w-5 flex-shrink-0 text-warning">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+            </svg>
+            <span><strong>Gut merken:</strong> Ohne deine PIN kommst du nicht mehr an deine Daten. Sie lässt sich nicht zurücksetzen.</span>
+          </div>
+        )}
+
+        <div className="flex gap-2.5">
           {isFirstTime && isConfirming && (
-            <button
-              type="button"
-              onClick={handleBack}
-              className="btn btn-outline flex-1"
-              disabled={loading}
-            >
+            <button type="button" onClick={handleBack} className="btn btn-ghost flex-1" disabled={loading}>
               Zurück
             </button>
           )}
-          
+
           <button
             type="button"
             onClick={handleSubmit}
@@ -241,36 +249,24 @@ const PinEntry = ({
           >
             {loading ? (
               <>
-                <span className="loading loading-spinner loading-sm"></span>
-                {isFirstTime ? 'Schlüssel wird generiert...' : 'PIN wird überprüft...'}
+                <span className="loading loading-spinner loading-sm" />
+                {isFirstTime ? 'Schlüssel wird erstellt…' : 'Wird geprüft…'}
               </>
             ) : (
               isFirstTime && !isConfirming ? 'Weiter' : 'Bestätigen'
             )}
           </button>
-          
+
           {!isFirstTime && (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="btn btn-outline"
-              disabled={loading}
-            >
+            <button type="button" onClick={onCancel} className="btn btn-ghost" disabled={loading}>
               Abbrechen
             </button>
           )}
         </div>
 
-        {isFirstTime && !isConfirming && (
-            <div className="mb-4 mt-4 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 text-sm rounded">
-              <p><strong>Wichtiger Hinweis:</strong> Ohne dein PIN kannst du nicht mehr auf deine Daten zugreifen.</p>
-            </div>
-        )}
-
-        <div className="mt-4 text-xs text-gray-500 text-center">
-          <p>Dein PIN wird niemals gespeichert oder übertragen.</p>
-          <p>Er wird nur zur lokalen Verschlüsselung verwendet.</p>
-        </div>
+        <p className="mt-5 text-center text-xs leading-relaxed text-base-content/45">
+          Deine PIN wird nie gespeichert oder übertragen. Sie verschlüsselt deine Daten nur lokal.
+        </p>
       </div>
     </div>
   );

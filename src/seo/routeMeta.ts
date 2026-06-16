@@ -1,18 +1,17 @@
-import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
+export type RobotsPolicy = "index, follow" | "noindex, nofollow";
 
-type RobotsPolicy = "index, follow" | "noindex, nofollow";
-
-type RouteMeta = {
+export type RouteMeta = {
     title: string;
     description: string;
     robots: RobotsPolicy;
     canonicalPath: string;
+    ogImage: string;
     jsonLd?: object;
 };
 
-const SITE_URL = "https://absendo.app";
-const SITE_NAME = "Absendo";
+export const SITE_URL = "https://absendo.app";
+export const SITE_NAME = "Absendo";
+const DEFAULT_OG_IMAGE = "/og-image.png";
 
 const HOME_JSON_LD = {
     "@context": "https://schema.org",
@@ -34,6 +33,8 @@ const HOME_JSON_LD = {
     }
 };
 
+// FAQPage liefert bei kommerziellen Seiten seit Aug 2023 keine Google-Rich-Results
+// mehr, hilft aber weiterhin für die Zitierbarkeit in KI-Suchen (ChatGPT, Perplexity).
 const BBZW_PAGE_JSON_LD = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -51,21 +52,69 @@ const BBZW_PAGE_JSON_LD = {
             name: "Funktioniert Absendo für BBZW Sursee, Emmen und Willisau?",
             acceptedAnswer: {
                 "@type": "Answer",
-                text: "Ja, die Lösung ist aktuell auf BBZW Sursee, Emmen und Willisau ausgerichtet."
+                text: "Ja, die Lösung ist aktuell auf BBZW Sursee, BBZW Emmen und BBZW Willisau ausgerichtet."
+            }
+        },
+        {
+            "@type": "Question",
+            name: "Was kostet das Ausfüllen des Absenzformulars mit Absendo?",
+            acceptedAnswer: {
+                "@type": "Answer",
+                text: "Absendo ist für Schülerinnen und Schüler kostenlos. Du brauchst nur ein Konto und deine Schulnetz-Kalender-URL."
             }
         }
     ]
 };
 
-const DEFAULT_META: RouteMeta = {
+const GUIDE_PAGE_JSON_LD = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+        {
+            "@type": "Question",
+            name: "Bis wann muss ich eine Absenz am BBZW entschuldigen?",
+            acceptedAnswer: {
+                "@type": "Answer",
+                text: "Spätestens in der 3. Schulwoche nach Wiederaufnahme des Unterrichts muss das Formular den Lehrpersonen bzw. der Klassenlehrperson zum Visieren vorgelegt werden. Zu spät eingereichte, unvollständige oder nicht plausibel begründete Entschuldigungen werden nicht akzeptiert."
+            }
+        },
+        {
+            "@type": "Question",
+            name: "Wie früh muss ich ein Urlaubsgesuch am BBZW einreichen?",
+            acceptedAnswer: {
+                "@type": "Answer",
+                text: "Spätestens 3 Schulwochen vor dem Urlaub bei der Klassenlehrperson, mit zwingend beigelegtem Beweismittel. Das Gesuch wird von der Fachbereichsleitung bewilligt oder abgelehnt; die lernende Person erhält einen schriftlichen Bescheid."
+            }
+        },
+        {
+            "@type": "Question",
+            name: "Was ist der Unterschied zwischen Entschuldigung und Urlaubsgesuch?",
+            acceptedAnswer: {
+                "@type": "Answer",
+                text: "Eine Entschuldigung reichst du nachträglich für eine bereits eingetretene Absenz ein, zum Beispiel bei Krankheit. Ein Urlaubsgesuch stellst du im Voraus für eine geplante Abwesenheit."
+            }
+        },
+        {
+            "@type": "Question",
+            name: "Gilt das für BBZW Sursee, Emmen und Willisau?",
+            acceptedAnswer: {
+                "@type": "Answer",
+                text: "Ja. Absendo ist aktuell auf die BBZW-Standorte Sursee, Emmen und Willisau ausgerichtet."
+            }
+        }
+    ]
+};
+
+export const DEFAULT_META: RouteMeta = {
     title: "Absendo | BBZW Absenzformulare in 30 Sekunden",
     description:
         "Absendo füllt BBZW-Absenzformulare automatisch aus. Für Sursee, Emmen und Willisau. Schnell, kostenlos und ohne Stress.",
     robots: "noindex, nofollow",
-    canonicalPath: "/"
+    canonicalPath: "/",
+    ogImage: DEFAULT_OG_IMAGE
 };
 
-const ROUTE_META: Record<string, Partial<RouteMeta>> = {
+export const ROUTE_META: Record<string, Partial<RouteMeta>> = {
     "/": {
         title: "Absendo | BBZW Absenzformulare in 30 Sekunden",
         description:
@@ -81,12 +130,20 @@ const ROUTE_META: Record<string, Partial<RouteMeta>> = {
         canonicalPath: "/contact"
     },
     "/bbzw-absenzformular": {
-        title: "BBZW Absenzformular online ausfüllen | Absendo",
+        title: "BBZW Absenzformular online ausfüllen | Sursee, Emmen, Willisau",
         description:
-            "BBZW Absenzformular schnell online ausfüllen: für Sursee, Emmen und Willisau. Gebaut, um Zeit zu sparen statt manuell alles einzutragen.",
+            "BBZW Absenzformular schnell online ausfüllen: für Sursee, Emmen und Willisau. Entschuldigung und Urlaubsgesuch automatisch vorbereiten statt manuell eintragen.",
         robots: "index, follow",
         canonicalPath: "/bbzw-absenzformular",
         jsonLd: BBZW_PAGE_JSON_LD
+    },
+    "/bbzw-absenzen-entschuldigen": {
+        title: "BBZW Absenz entschuldigen: Anleitung für Sursee, Emmen & Willisau",
+        description:
+            "Absenz am BBZW richtig entschuldigen: Unterschied zwischen Entschuldigung und Urlaubsgesuch, krank melden und wie du das Formular in Sekunden ausfüllst.",
+        robots: "index, follow",
+        canonicalPath: "/bbzw-absenzen-entschuldigen",
+        jsonLd: GUIDE_PAGE_JSON_LD
     },
     "/datenschutz": {
         title: "Datenschutzerklärung | Absendo",
@@ -141,75 +198,18 @@ const ROUTE_META: Record<string, Partial<RouteMeta>> = {
         description: "Übersicht über alle von dir generierten Absenzen.",
         robots: "noindex, nofollow",
         canonicalPath: "/absences"
+    },
+    "/demo": {
+        title: "Demo | Absendo",
+        description: "Probiere Absendo unverbindlich aus und sieh, wie das BBZW Absenzformular automatisch ausgefüllt wird.",
+        robots: "index, follow",
+        canonicalPath: "/demo"
     }
 };
 
-function upsertMeta(attribute: "name" | "property", key: string, content: string): void {
-    let element = document.head.querySelector(`meta[${attribute}="${key}"]`);
-    if (!element) {
-        element = document.createElement("meta");
-        element.setAttribute(attribute, key);
-        document.head.appendChild(element);
-    }
-    element.setAttribute("content", content);
-}
-
-function upsertCanonical(url: string): void {
-    let canonical = document.head.querySelector('link[rel="canonical"]');
-    if (!canonical) {
-        canonical = document.createElement("link");
-        canonical.setAttribute("rel", "canonical");
-        document.head.appendChild(canonical);
-    }
-    canonical.setAttribute("href", url);
-}
-
-function upsertJsonLd(jsonLd: object | undefined): void {
-    const scriptId = "route-jsonld";
-    const existing = document.getElementById(scriptId);
-
-    if (!jsonLd) {
-        if (existing) {
-            existing.remove();
-        }
-        return;
-    }
-
-    const script = existing ?? document.createElement("script");
-    script.setAttribute("id", scriptId);
-    script.setAttribute("type", "application/ld+json");
-    script.textContent = JSON.stringify(jsonLd);
-
-    if (!existing) {
-        document.head.appendChild(script);
-    }
-}
-
-export default function RouteSeo() {
-    const { pathname } = useLocation();
-
-    useEffect(() => {
-        const meta: RouteMeta = {
-            ...DEFAULT_META,
-            ...ROUTE_META[pathname]
-        };
-
-        const canonical = new URL(meta.canonicalPath, SITE_URL).toString();
-        document.title = meta.title;
-
-        upsertMeta("name", "description", meta.description);
-        upsertMeta("name", "robots", meta.robots);
-        upsertMeta("property", "og:type", "website");
-        upsertMeta("property", "og:site_name", SITE_NAME);
-        upsertMeta("property", "og:title", meta.title);
-        upsertMeta("property", "og:description", meta.description);
-        upsertMeta("property", "og:url", canonical);
-        upsertMeta("name", "twitter:card", "summary");
-        upsertMeta("name", "twitter:title", meta.title);
-        upsertMeta("name", "twitter:description", meta.description);
-        upsertCanonical(canonical);
-        upsertJsonLd(meta.jsonLd);
-    }, [pathname]);
-
-    return null;
+export function resolveMeta(pathname: string): RouteMeta {
+    return {
+        ...DEFAULT_META,
+        ...ROUTE_META[pathname]
+    };
 }

@@ -1,0 +1,31 @@
+# Absendo
+
+> Absendo füllt BBZW-Absenzformulare (Entschuldigung und Urlaubsgesuch) automatisch aus –
+> für die Standorte BBZW Sursee, BBZW Emmen und BBZW Willisau. Stammdaten und betroffene
+> Lektionen werden aus dem Stundenplan übernommen, das fertige PDF lässt sich herunterladen.
+> Kostenlos für Lernende.
+
+## Was Absendo macht
+
+- Bereitet das offizielle BBZW-Absenzformular (Entschuldigung / Urlaubsgesuch) automatisch vor.
+- Übernimmt wiederkehrende Angaben (Name, Klasse) und die betroffenen Lektionen aus dem Schulnetz-Kalender.
+- Erstellt ein fertiges PDF zum Herunterladen und Einreichen.
+- Ist auf die BBZW-Standorte Sursee, Emmen und Willisau im Kanton Luzern ausgerichtet.
+- Hinweis: Absendo ist ein unabhängiges Tool von Lernenden und nicht offiziell mit den Schulen assoziiert.
+
+## Wichtige Seiten
+
+- [BBZW Absenzformular online ausfüllen](https://absendo.app/bbzw-absenzformular): Wie du das Absenzformular für Sursee, Emmen und Willisau in Sekunden ausfüllst.
+- [BBZW Absenz entschuldigen – Anleitung](https://absendo.app/bbzw-absenzen-entschuldigen): Schritt-für-Schritt erklärt, inkl. Unterschied Entschuldigung vs. Urlaubsgesuch und krank melden.
+- [Demo](https://absendo.app/demo): Absendo unverbindlich ausprobieren.
+- [Startseite](https://absendo.app/): Überblick über das Tool.
+- [Kontakt](https://absendo.app/contact): Fragen stellen oder eine weitere Schule vorschlagen.
+
+## Häufige Fragen
+
+- Wie entschuldige ich eine Absenz am BBZW? Mit dem offiziellen Absenzformular: persönliche Angaben, Datum, betroffene Lektionen und Grund eintragen, unterschreiben und einreichen. Absendo füllt die wiederkehrenden Angaben automatisch aus.
+- Bis wann muss ich eine Absenz entschuldigen? Spätestens in der 3. Schulwoche nach Wiederaufnahme des Unterrichts den Lehrpersonen bzw. der Klassenlehrperson zum Visieren vorlegen. Zu spät, unvollständig oder ohne plausiblen Grund wird die Entschuldigung nicht akzeptiert.
+- Wie früh muss ich ein Urlaubsgesuch einreichen? Spätestens 3 Schulwochen vor dem Urlaub bei der Klassenlehrperson, mit zwingend beigelegtem Beweismittel. Nicht bewilligt werden Urlaub für die Auto-/Rollerprüfung sowie Ferien und vorzeitiges Abreisen.
+- Was ist der Unterschied zwischen Entschuldigung und Urlaubsgesuch? Eine Entschuldigung reichst du nachträglich für eine bereits eingetretene Absenz ein (z. B. Krankheit), ein Urlaubsgesuch im Voraus für eine geplante Abwesenheit.
+- Für welche Standorte funktioniert Absendo? Aktuell für BBZW Sursee, BBZW Emmen und BBZW Willisau.
+- Was kostet Absendo? Für Lernende ist es kostenlos.

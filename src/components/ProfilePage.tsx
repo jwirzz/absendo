@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "../supabaseClient.ts";
 import EncryptionService from "../services/encryptionService.ts";
 import { useUserProfile } from "../contexts/UserProfileContext.tsx";
@@ -28,9 +28,10 @@ export const ProfilePage = () => {
         email_trainer?: string;
     }
 
-    const { user, profile, loading: profileLoading, refreshProfile } = useUserProfile();
+    const { user, profile, loading: profileLoading, refreshProfile, updateProfileFields } = useUserProfile();
     const [absencesLoading, setAbsencesLoading] = useState(true);
     const [totalAbsences, setTotalAbsences] = useState(0);
+    const [settingsLoading, setSettingsLoading] = useState(false);
     const [formData, setFormData] = useState<FormData>({
         id: "",
         first_name: "",
@@ -190,6 +191,17 @@ export const ProfilePage = () => {
         }
     };
 
+    async function updateSetting(field: "isFullNameEnabled" | "isFullSubjectEnabled" | "isDoNotSaveEnabled", value: boolean) {
+        setSettingsLoading(true);
+        try {
+            await updateProfileFields({ [field]: value } as Partial<UserProfile>);
+        } catch (settingError) {
+            console.error(`Error updating ${field}:`, settingError);
+        } finally {
+            setSettingsLoading(false);
+        }
+    }
+
     const isLoading = profileLoading || absencesLoading;
 
     if (isLoading) {
@@ -204,246 +216,140 @@ export const ProfilePage = () => {
         return <div className="text-center text-red-500 mt-10">Benutzerdaten konnten nicht geladen werden.</div>;
     }
 
+    const minutes = displayData.time_saved_minutes || 0;
+    const timeSaved = minutes >= 60 ? `${Math.floor(minutes / 60)} Std. ${minutes % 60} Min.` : `${minutes} Min.`;
+    const isFullNameEnabled = profile?.isFullNameEnabled ?? false;
+    const isFullSubjectEnabled = profile?.isFullSubjectEnabled ?? false;
+    const isDoNotSaveEnabled = profile?.isDoNotSaveEnabled ?? false;
+
     return (
-        <div className="p-4 m-8">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <div className="card bg-base-100 shadow-xl">
-                    <div className="card-body items-center text-center">
-                        <div className="avatar">
-                            <div className="w-24 rounded-full bg-primary text-primary-content grid place-items-center text-xl font-bold">
-                                <div className="flex items-center justify-center w-full h-full">{getUserShortName()}</div>
-                            </div>
-                        </div>
-                        <h2 className="card-title mt-4">{displayData.first_name} {displayData.last_name}</h2>
-                        <p className="text-sm text-gray-500">{displayData.birthday}</p>
-                        <p className="text-sm text-gray-500">Ausbilder: {displayData.first_name_trainer} {displayData.last_name_trainer}</p>
-                    </div>
+        <div className="mx-auto max-w-7xl px-6 pb-24 pt-10">
+            {/* Kopf */}
+            <div className="mb-8 flex flex-wrap items-center gap-5">
+                <div className="grid h-[76px] w-[76px] place-items-center rounded-full bg-secondary text-2xl font-bold text-secondary-content">
+                    {getUserShortName()}
                 </div>
-
-                <div className="card bg-base-100 shadow-xl">
-                    <div className="card-body">
-                        <h2 className="card-title text-xl font-bold ">Deine Statistik</h2>
-
-                        <div className="stats stats-vertical lg:stats-horizontal shadow mt-4">
-                            <div className="stat">
-                                <div className="stat-title">Generierte Absenzen</div>
-                                <div className="stat-value text-primary">{displayData.total_absences || 0}</div>
-                                <div className="stat-desc">Seit der Registrierung</div>
-                            </div>
-
-                            <div className="stat">
-                                <div className="stat-title">Zeit gespart</div>
-                                <div className="stat-value text-accent">
-                                    {displayData.time_saved_minutes
-                                        ? displayData.time_saved_minutes >= 60
-                                            ? `${Math.floor(displayData.time_saved_minutes / 60)} Std. ${displayData.time_saved_minutes % 60} Min.`
-                                            : `${displayData.time_saved_minutes} Min.`
-                                        : "0 Min."
-                                    }
-                                </div>
-                                <div className="stat-desc">Mit Absendo vs. manuell</div>
-                            </div>
-                        </div>
-
-                        <div className="mt-4 text-sm text-gray-600">
-                            <p>Mit Absendo sparst du dir durchschnittlich 5 Minuten pro Absenz</p>
-                        </div>
+                <div className="flex-1">
+                    <h1 className="display-md">{displayData.first_name} {displayData.last_name}</h1>
+                    <div className="mt-1 text-sm text-base-content/60">{displayData.birthday || "Profil vervollständigen"}</div>
+                </div>
+                <div className="flex gap-6">
+                    <div>
+                        <div className="font-mono text-2xl font-bold tabular-nums text-primary">{displayData.total_absences || 0}</div>
+                        <div className="text-xs text-base-content/50">Absenzen</div>
+                    </div>
+                    <div>
+                        <div className="font-mono text-2xl font-bold tabular-nums">{timeSaved}</div>
+                        <div className="text-xs text-base-content/50">gespart</div>
                     </div>
                 </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-
-                <div className="card bg-base-100 shadow-xl">
-                    <div className="card-body">
-                        <h2 className="card-title text-xl font-bold mb-6">Deine persönlichen Daten</h2>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="form-control w-full">
-                                <label className="label">
-                                    <span className="label-text">Vorname</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    name="first_name"
-                                    value={formData.first_name}
-                                    onChange={handleChange}
-                                    placeholder="Dein Vorname"
-                                    className={`input input-bordered w-full ${errors.first_name ? "input-error" : ""}`}
-                                />
-                                {errors.first_name && <span className="text-error text-xs mt-1">{errors.first_name}</span>}
-                            </div>
-
-                            <div className="form-control w-full">
-                                <label className="label">
-                                    <span className="label-text">Nachname</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    name="last_name"
-                                    value={formData.last_name}
-                                    onChange={handleChange}
-                                    placeholder="Dein Nachname"
-                                    className={`input input-bordered w-full ${errors.last_name ? "input-error" : ""}`}
-                                />
-                                {errors.last_name && <span className="text-error text-xs mt-1">{errors.last_name}</span>}
-                            </div>
-                        </div>
-                        <div className="form-control w-full">
-                            <label className="label">
-                                <span className="label-text">Geburtsdatum</span>
-                            </label>
-                            <input
-                                type="date"
-                                name="birthday"
-                                value={formData.birthday}
-                                onChange={handleChange}
-                                className={`input input-bordered w-full ${errors.birthday ? "input-error" : ""}`}
-                            />
-                            {errors.birthday && <span className="text-error text-xs mt-1">{errors.birthday}</span>}
-                        </div>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+                {/* Persönlich */}
+                <section className="card bg-base-100 p-7 shadow-soft-sm ring-1 ring-base-300/70">
+                    <h2 className="mb-5 text-lg font-bold">Persönlich</h2>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <Field label="Vorname" error={errors.first_name}>
+                            <input type="text" name="first_name" value={formData.first_name} onChange={handleChange} placeholder="Dein Vorname"
+                                className={`afield ${errors.first_name ? "afield-error" : ""}`} />
+                        </Field>
+                        <Field label="Nachname" error={errors.last_name}>
+                            <input type="text" name="last_name" value={formData.last_name} onChange={handleChange} placeholder="Dein Nachname"
+                                className={`afield ${errors.last_name ? "afield-error" : ""}`} />
+                        </Field>
+                        <Field label="Geburtsdatum" error={errors.birthday}>
+                            <input type="date" name="birthday" value={formData.birthday} onChange={handleChange}
+                                className={`afield ${errors.birthday ? "afield-error" : ""}`} />
+                        </Field>
                     </div>
-                </div>
+                </section>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="card bg-base-100 shadow-xl">
-                        <div className="card-body">
-                            <h2 className="card-title text-xl font-bold mb-6">Kalender-Einstellungen</h2>
+                {/* Schule & Stundenplan (ohne Sync-Status) */}
+                <section className="card bg-base-100 p-7 shadow-soft-sm ring-1 ring-base-300/70">
+                    <h2 className="mb-5 text-lg font-bold">Schule & Stundenplan</h2>
+                    <Field label="SchulNetz Kalender-URL" error={errors.calendar_url}
+                        hint="Von dieser URL liest Absendo deinen Stundenplan. Im SchulNetz das Kalender-Abo anfordern und den Link hier einfügen.">
+                        <input type="url" name="calendar_url" value={formData.calendar_url} onChange={handleChange}
+                            placeholder="https://schulnetz.lu.ch/bbzw/..."
+                            className={`afield ${errors.calendar_url ? "afield-error" : ""}`} />
+                    </Field>
+                </section>
 
-                            <div className="form-control w-full">
-                                <label className="label">
-                                    <span className="label-text">Kalender-URL</span>
-                                </label>
-                                <input
-                                    type="url"
-                                    name="calendar_url"
-                                    value={formData.calendar_url}
-                                    onChange={handleChange}
-                                    placeholder="https://schulnetz.lu.ch/bbzw/..."
-                                    className={`input input-bordered w-full ${errors.calendar_url ? "input-error" : ""}`}
-                                />
-                                {errors.calendar_url && <span className="text-error text-xs mt-1">{errors.calendar_url}</span>}
-                                <br />
-                                <label className="label">
-                                    <span className="label-text-alt text-gray-500">Dies ist die URL, von der Absendo deine Absenzen auslesen wird</span>
-                                </label>
-                            </div>
-
-                            <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                                <div className="flex items-start">
-                                    <div className="flex-shrink-0">
-                                        <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"></path>
-                                        </svg>
-                                    </div>
-                                    <div className="ml-3">
-                                        <h3 className="text-sm font-medium text-blue-800">So findest du deine Kalender-URL</h3>
-                                        <div className="mt-2 text-sm text-blue-700">
-                                            <ol className="list-decimal list-inside">
-                                                <li>Melde dich im Schulnetz an</li>
-                                                <li>Scrolle ganz nach unten und aktiviere dein Kalender-Abo</li>
-                                                <li>Fordere den Kalender-Link per E-Mail an</li>
-                                                <li>Die Kalender-URL wird an deine SLUZ-E-Mail gesendet</li>
-                                                <li>Kopiere die URL und füge sie hier ein</li>
-                                            </ol>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                {/* Ausbilder */}
+                <section className="card bg-base-100 p-7 shadow-soft-sm ring-1 ring-base-300/70">
+                    <h2 className="mb-5 text-lg font-bold">Ausbilder·in im Lehrbetrieb</h2>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <Field label="Vorname" error={errors.first_name_trainer}>
+                            <input type="text" name="first_name_trainer" value={formData.first_name_trainer} onChange={handleChange} placeholder="Vorname"
+                                className={`afield ${errors.first_name_trainer ? "afield-error" : ""}`} />
+                        </Field>
+                        <Field label="Nachname" error={errors.last_name_trainer}>
+                            <input type="text" name="last_name_trainer" value={formData.last_name_trainer} onChange={handleChange} placeholder="Nachname"
+                                className={`afield ${errors.last_name_trainer ? "afield-error" : ""}`} />
+                        </Field>
+                        <Field label="Telefon" error={errors.phone_number_trainer}>
+                            <input type="tel" name="phone_number_trainer" value={formData.phone_number_trainer} onChange={handleChange} placeholder="+41 79 123 45 67"
+                                className={`afield ${errors.phone_number_trainer ? "afield-error" : ""}`} />
+                        </Field>
+                        <Field label="E-Mail" error={errors.email_trainer}>
+                            <input type="email" name="email_trainer" value={formData.email_trainer} onChange={handleChange} placeholder="ausbilder@beispiel.com"
+                                className={`afield ${errors.email_trainer ? "afield-error" : ""}`} />
+                        </Field>
                     </div>
+                </section>
 
-                    <div className="card bg-base-100 shadow-xl">
-                        <div className="card-body">
-                            <h2 className="card-title text-xl font-bold mb-6">Ausbilder-Informationen</h2>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="form-control w-full">
-                                    <label className="label">
-                                        <span className="label-text">Vorname des Ausbilders</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="first_name_trainer"
-                                        value={formData.first_name_trainer}
-                                        onChange={handleChange}
-                                        placeholder="Vorname"
-                                        className={`input input-bordered w-full ${errors.first_name_trainer ? "input-error" : ""}`}
-                                    />
-                                    {errors.first_name_trainer && <span className="text-error text-xs mt-1">{errors.first_name_trainer}</span>}
-                                </div>
-
-                                <div className="form-control w-full">
-                                    <label className="label">
-                                        <span className="label-text">Nachname des Ausbilders</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="last_name_trainer"
-                                        value={formData.last_name_trainer}
-                                        onChange={handleChange}
-                                        placeholder="Nachname"
-                                        className={`input input-bordered w-full ${errors.last_name_trainer ? "input-error" : ""}`}
-                                    />
-                                    {errors.last_name_trainer && <span className="text-error text-xs mt-1">{errors.last_name_trainer}</span>}
-                                </div>
-                            </div>
-
-                            <div className="form-control w-full">
-                                <label className="label">
-                                    <span className="label-text">Telefonnummer des Ausbilders</span>
-                                </label>
-                                <input
-                                    type="tel"
-                                    name="phone_number_trainer"
-                                    value={formData.phone_number_trainer}
-                                    onChange={handleChange}
-                                    placeholder="+41 79 123 45 67"
-                                    className={`input input-bordered w-full ${errors.phone_number_trainer ? "input-error" : ""}`}
-                                />
-                                {errors.phone_number_trainer && <span className="text-error text-xs mt-1">{errors.phone_number_trainer}</span>}
-                            </div>
-
-                            <div className="form-control w-full">
-                                <label className="label">
-                                    <span className="label-text">E-Mail des Ausbilders</span>
-                                </label>
-                                <input
-                                    type="email"
-                                    name="email_trainer"
-                                    value={formData.email_trainer}
-                                    onChange={handleChange}
-                                    placeholder="ausbilder@beispiel.com"
-                                    className={`input input-bordered w-full ${errors.email_trainer ? "input-error" : ""}`}
-                                />
-                                {errors.email_trainer && <span className="text-error text-xs mt-1">{errors.email_trainer}</span>}
-                            </div>
-                        </div>
+                {/* PDF-Einstellungen (sofort gespeichert) */}
+                <section className="card bg-base-100 p-7 shadow-soft-sm ring-1 ring-base-300/70">
+                    <h2 className="mb-5 text-lg font-bold">PDF-Einstellungen</h2>
+                    <div className="flex flex-col gap-4">
+                        <ToggleRow label="Lehrpersonen ausschreiben" desc="Vollständige Namen statt Kürzel"
+                            on={isFullNameEnabled} disabled={settingsLoading} onChange={(v) => void updateSetting("isFullNameEnabled", v)} />
+                        <ToggleRow label="Fächer ausschreiben" desc="Module bleiben abgekürzt"
+                            on={isFullSubjectEnabled} disabled={settingsLoading} onChange={(v) => void updateSetting("isFullSubjectEnabled", v)} />
+                        <ToggleRow label="Lokaler Modus" desc="Absenz nicht auf Absendo speichern"
+                            on={isDoNotSaveEnabled} disabled={settingsLoading} onChange={(v) => void updateSetting("isDoNotSaveEnabled", v)} />
                     </div>
-                </div>
+                </section>
 
                 {submitSuccess && (
-                    <div className="alert alert-success">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>Deine Daten wurden erfolgreich gespeichert!</span>
+                    <div className="flex items-center gap-2 rounded-2xl bg-success/15 px-4 py-3 text-sm font-medium text-success">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-5 w-5"><path strokeLinecap="round" strokeLinejoin="round" d="m5 13 4 4L19 7" /></svg>
+                        Deine Daten wurden gespeichert.
                     </div>
                 )}
 
                 <div className="flex justify-end">
-                    <button
-                        type="submit"
-                        className="btn btn-primary"
-                        disabled={isSubmitting}
-                    >
+                    <button type="submit" className="btn btn-primary gap-2" disabled={isSubmitting}>
                         {isSubmitting
-                            ? <><span className="loading loading-spinner loading-sm"></span> Speichern...</>
-                            : "Änderungen speichern"
-                        }
+                            ? <><span className="loading loading-spinner loading-sm" /> Speichern…</>
+                            : "Änderungen speichern"}
                     </button>
                 </div>
             </form>
         </div>
     );
 };
+
+function Field({ label, error, hint, children }: { label: string; error?: string; hint?: string; children: ReactNode }) {
+    return (
+        <div className="w-full">
+            <span className="mb-2 block text-xs font-semibold text-base-content/60">{label}</span>
+            {children}
+            {hint && !error && <span className="mt-1.5 block text-xs text-base-content/45">{hint}</span>}
+            {error && <span className="mt-1.5 block text-xs text-error">{error}</span>}
+        </div>
+    );
+}
+
+function ToggleRow({ label, desc, on, disabled, onChange }: { label: string; desc: string; on: boolean; disabled?: boolean; onChange: (v: boolean) => void }) {
+    return (
+        <label className="flex cursor-pointer items-start gap-3">
+            <div className="flex-1">
+                <div className="text-[13px] font-semibold">{label}</div>
+                <div className="text-xs text-base-content/50">{desc}</div>
+            </div>
+            <input type="checkbox" className="toggle toggle-primary toggle-sm mt-0.5" checked={on} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+        </label>
+    );
+}

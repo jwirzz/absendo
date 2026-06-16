@@ -1,10 +1,7 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import AppRoutes from "./routes.tsx";
+import { ViteReactSSG } from "vite-react-ssg";
+import { routes } from "./routes.tsx";
+import "@fontsource-variable/plus-jakarta-sans";
+import "@fontsource-variable/jetbrains-mono";
 import "./index.css";
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-      <AppRoutes />
-  </StrictMode>,
-)
+export const createRoot = ViteReactSSG({ routes });

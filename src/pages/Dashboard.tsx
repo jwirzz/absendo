@@ -50,7 +50,7 @@ function Dashboard() {
     }
 
     const DashboardContent = () => (
-        <div className="min-h-screen bg-base-100 flex flex-col">
+        <div className="min-h-screen bg-base-200/40 flex flex-col">
             <Navbar />
             <main className="flex-1">
                 <DashboardHeader />

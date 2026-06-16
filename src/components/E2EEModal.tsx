@@ -13,7 +13,7 @@ const E2EEModal = ({ isOpen, onClose }: E2EEModalProps) => {
                 <h2 className="text-2xl font-bold text-center mb-4">Hinweis zur Sicherheit</h2>
                 <p className="text-center text-gray-700 mb-6">
                     Ab sofort sind alle deine Daten <strong>End-to-End verschlüsselt</strong>.
-                    Das bedeutet: Nur du kannst darauf zugreifen – wir haben keine Einsicht.
+                    Das bedeutet: Nur du kannst darauf zugreifen. Wir haben keine Einsicht.
                     Ohne deine PIN kann niemand, auch du nicht, die Daten wiederherstellen.
                 </p>
 

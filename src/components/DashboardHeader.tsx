@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import NewAbsenceModal from "./NewAbsenceModal.tsx";
 import { useUserProfile } from "../contexts/UserProfileContext.tsx";
 
@@ -6,14 +6,30 @@ function DashboardHeader() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const { user, profile, refreshProfile } = useUserProfile();
 
+    // Über Navbar-Button, N-Shortcut oder #neue-absenz-Hash öffnen
+    useEffect(() => {
+        const open = () => { setIsModalOpen(true); void refreshProfile(); };
+        const fromHash = () => {
+            if (window.location.hash === "#neue-absenz") {
+                history.replaceState(null, "", window.location.pathname + window.location.search);
+                open();
+            }
+        };
+        window.addEventListener("absendo:new-absence", open);
+        window.addEventListener("hashchange", fromHash);
+        fromHash();
+        return () => {
+            window.removeEventListener("absendo:new-absence", open);
+            window.removeEventListener("hashchange", fromHash);
+        };
+    }, [refreshProfile]);
+
     const isFullNameEnabled = profile?.isFullNameEnabled ?? false;
     const isFullSubjectEnabled = profile?.isFullSubjectEnabled ?? false;
     const isDoNotSaveEnabled = profile?.isDoNotSaveEnabled ?? false;
 
-    const openModal = async () => {
-        await refreshProfile();
-        setIsModalOpen(true);
-    };
+    const firstName = profile?.first_name?.trim() || "";
+    const initials = `${profile?.first_name?.charAt(0) ?? ""}${profile?.last_name?.charAt(0) ?? ""}`.toUpperCase() || "NN";
 
     const closeModal = useCallback(() => {
         setIsModalOpen(false);
@@ -21,16 +37,13 @@ function DashboardHeader() {
     }, []);
 
     return (
-        <div className="p-6">
-            <div className="flex justify-between items-center mb-6 flex-wrap">
-                <h1 className="text-2xl font-bold">Absendo Dashboard</h1>
-                <button className="btn btn-primary btn-xl sm:mt-0 mt-4" onClick={openModal}>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5"
-                         stroke="currentColor" className="w-6 h-6 mr-2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-                    </svg>
-                    Neue Absenz
-                </button>
+        <div className="mx-auto max-w-7xl px-6 pt-8">
+            <div className="flex items-center gap-4">
+                <div className="grid h-14 w-14 place-items-center rounded-2xl bg-secondary text-lg font-bold text-secondary-content">{initials}</div>
+                <div>
+                    <h1 className="display-md">Hallo {firstName || "zusammen"} 👋</h1>
+                    <p className="mt-1 text-sm text-base-content/60">Bereit für die nächste Absenz.</p>
+                </div>
             </div>
 
             <NewAbsenceModal

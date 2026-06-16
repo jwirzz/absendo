@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "../supabaseClient";
 import EncryptionService from "../services/encryptionService.ts";
 import { useUserProfile } from "../contexts/UserProfileContext.tsx";
@@ -21,6 +21,9 @@ function DashboardContent() {
     const [loadingPdfs, setLoadingPdfs] = useState(true);
     const [pdfs, setPdfs] = useState<PdfFile[]>([]);
     const [settingsLoading, setSettingsLoading] = useState(false);
+    const [query, setQuery] = useState("");
+    const [sortKey, setSortKey] = useState<"date" | "reason">("date");
+    const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
     const loadPdfs = useCallback(async () => {
         if (!user) {
@@ -90,16 +93,16 @@ function DashboardContent() {
         }
     }
 
-    const handleFullNameToggle = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        await updateSetting("isFullNameEnabled", e.target.checked);
+    const handleFullNameToggle = async (value: boolean) => {
+        await updateSetting("isFullNameEnabled", value);
     };
 
-    const handleFullSubjectToggle = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        await updateSetting("isFullSubjectEnabled", e.target.checked);
+    const handleFullSubjectToggle = async (value: boolean) => {
+        await updateSetting("isFullSubjectEnabled", value);
     };
 
-    const handleDoNotSaveToggle = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        await updateSetting("isDoNotSaveEnabled", e.target.checked);
+    const handleDoNotSaveToggle = async (value: boolean) => {
+        await updateSetting("isDoNotSaveEnabled", value);
     };
 
     const userData = useMemo<UserProfile | null>(() => {
@@ -112,12 +115,22 @@ function DashboardContent() {
         };
     }, [profile, pdfs.length]);
 
-    function getUserShortName() {
-        if (!userData) return "NN";
-        const first = userData.first_name?.charAt(0).toUpperCase() || "";
-        const last = userData.last_name?.charAt(0).toUpperCase() || "";
-        return `${first}${last}`;
-    }
+    const filteredPdfs = useMemo(() => {
+        const arr = pdfs.filter((p) => !query
+            || p.reason.toLowerCase().includes(query.toLowerCase())
+            || p.pdf_name.toLowerCase().includes(query.toLowerCase())
+            || p.date_of_absence.includes(query));
+        const dir = sortDir === "asc" ? 1 : -1;
+        return [...arr].sort((a, b) => {
+            if (sortKey === "reason") return a.reason.localeCompare(b.reason) * dir;
+            return (new Date(a.date_of_absence).getTime() - new Date(b.date_of_absence).getTime()) * dir;
+        });
+    }, [pdfs, query, sortKey, sortDir]);
+
+    const toggleSort = (k: "date" | "reason") => {
+        if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        else { setSortKey(k); setSortDir("desc"); }
+    };
 
     const isLoading = profileLoading || loadingPdfs;
     const isFullNameEnabled = profile?.isFullNameEnabled ?? false;
@@ -133,11 +146,11 @@ function DashboardContent() {
     }
 
     if (profileError) {
-        return <div className="text-center text-red-500 mt-10">Benutzerdaten konnten nicht geladen werden: {profileError}</div>;
+        return <div className="text-center text-error mt-10">Benutzerdaten konnten nicht geladen werden: {profileError}</div>;
     }
 
     if (!userData) {
-        return <div className="text-center text-red-500 mt-10">Benutzerdaten konnten nicht geladen werden.</div>;
+        return <div className="text-center text-error mt-10">Benutzerdaten konnten nicht geladen werden.</div>;
     }
 
     async function getPdf(pdf: PdfFile) {
@@ -188,194 +201,214 @@ function DashboardContent() {
     }
 
     function formatDate(dateString: string) {
+        if (!dateString) return "—";
         const date = new Date(dateString);
-        return date.toLocaleDateString("de-DE");
+        return date.toLocaleDateString("de-CH");
     }
 
+    const totalAbsences = userData.total_absences || 0;
+    const minutes = userData.time_saved_minutes || 0;
+    const timeSaved = minutes >= 60 ? `${Math.floor(minutes / 60)} Std. ${minutes % 60} Min.` : `${minutes} Min.`;
+    const latest = pdfs[0];
+
     return (
-        <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="card bg-base-100 shadow-xl">
-                <div className="card-body items-center text-center">
-                    <div className="avatar">
-                        <div className="w-24 rounded-full bg-primary text-primary-content grid place-items-center text-xl font-bold">
-                            <div className="flex items-center justify-center w-full h-full">{getUserShortName()}</div>
-                        </div>
-                    </div>
-                    <h2 className="card-title mt-4">{userData.first_name} {userData.last_name}</h2>
-                    <p className="text-sm text-gray-500">{userData.birthday}</p>
-                    <p className="text-sm text-gray-500">{userData.first_name_trainer} {userData.last_name_trainer}</p>
-                    <div className="card-actions justify-center mt-4">
-                        <a className="btn btn-sm btn-outline" href="/profile">Zu deinem Profil</a>
-                    </div>
-                </div>
+        <div className="mx-auto max-w-7xl px-6 pb-20 pt-6">
+            {/* Stat-Cards */}
+            <div className="grid gap-4 sm:grid-cols-3">
+                <StatCard color="#FF6B35" bg="#FFE4D6" label="Generierte Absenzen" sub="Seit Kontoerstellung"
+                    value={String(totalAbsences)}
+                    icon={<path strokeLinecap="round" strokeLinejoin="round" d="m10 3 7 4-7 4-7-4 7-4ZM3 11l7 4 7-4M3 15l7 4 7-4" />} />
+                <StatCard color="#7c63e6" bg="#EDE7FF" label="Zeit gespart" sub="≈ 5 Min. pro Absenz"
+                    value={timeSaved}
+                    icon={<><circle cx="12" cy="12" r="9" /><path strokeLinecap="round" strokeLinejoin="round" d="M12 7v5l3 2" /></>} />
+                <StatCard color="#2f9c77" bg="#D9F3E8" label="Letzte Absenz" sub={latest?.reason || "Noch keine"}
+                    value={<span className="text-2xl">{latest ? formatDate(latest.date_of_absence) : "—"}</span>}
+                    icon={<><rect x="3" y="5" width="18" height="16" rx="2" /><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M8 3v4M16 3v4" /></>} />
             </div>
 
-            <div className="card bg-base-100 shadow-xl lg:col-span-1">
-                <div className="card-body">
-                    <h2 className="card-title">Deine Statistik</h2>
-
-                    <div className="stats stats-vertical lg:stats-horizontal shadow mt-4">
-                        <div className="stat">
-                            <div className="stat-title">Generierte Absenzen</div>
-                            <div className="stat-value text-primary">{userData.total_absences || 0}</div>
-                            <div className="stat-desc">Seit der Registrierung</div>
+            <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_320px]">
+                {/* Tabelle */}
+                <div className="card overflow-hidden bg-base-100 shadow-soft-sm ring-1 ring-base-300/70">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-base-300 px-5 py-4">
+                        <div className="flex items-center gap-2.5">
+                            <h2 className="text-base font-bold">Deine Absenzen</h2>
+                            <span className="pill px-2 py-0.5 text-xs">{filteredPdfs.length}</span>
                         </div>
-
-                        <div className="stat">
-                            <div className="stat-title">Zeit gespart</div>
-                            <div className="stat-value text-accent">
-                                {userData.time_saved_minutes
-                                    ? userData.time_saved_minutes >= 60
-                                        ? `${Math.floor(userData.time_saved_minutes / 60)} Std. ${userData.time_saved_minutes % 60} Min.`
-                                        : `${userData.time_saved_minutes} Min.`
-                                    : "0 Min."
-                                }
+                        {pdfs.length > 0 && (
+                            <div className="relative">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-base-content/40"><circle cx="11" cy="11" r="7" /><path strokeLinecap="round" d="m20 20-3.5-3.5" /></svg>
+                                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Suchen…"
+                                    className="w-48 rounded-full border border-base-300 bg-base-100 py-2 pl-9 pr-3 text-sm outline-none transition-shadow focus:border-secondary focus:ring-2 focus:ring-primary/20" />
                             </div>
-                            <div className="stat-desc">Mit Absendo vs. manuell</div>
+                        )}
+                    </div>
+
+                    {pdfs.length === 0 ? (
+                        <div className="px-6 py-16 text-center">
+                            <p className="text-base-content/60">Noch keine Absenzen. Erstelle deine erste mit „Neue Absenz".</p>
                         </div>
-                    </div>
-
-                    <div className="mt-4 text-sm text-gray-600">
-                        <p>Mit Absendo sparst du dir durchschnittlich 5 Minuten pro Absenz</p>
-                    </div>
-                </div>
-            </div>
-
-            <div className="card bg-base-100 shadow-xl lg:col-span-1">
-                <div className="card-body">
-                    <h2 className="card-title mb-5">Absenz-Einstellungen</h2>
-                    <div className="flex items-center gap-2 mb-4">
-                        <input
-                            type="checkbox"
-                            checked={isFullNameEnabled}
-                            onChange={handleFullNameToggle}
-                            disabled={settingsLoading}
-                            className="toggle"
-                        />
-                        <span>Statt Kürzeln werden die Namen der Lehrpersonen vollständig ausgeschrieben</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            checked={isFullSubjectEnabled}
-                            onChange={handleFullSubjectToggle}
-                            disabled={settingsLoading}
-                            className="toggle"
-                        />
-                        <span>Fächer werden im Absenzformular ausgeschrieben statt abgekürzt dargestellt (Hinweis: Module werden weiterhin abgekürzt)</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            checked={isDoNotSaveEnabled}
-                            onChange={handleDoNotSaveToggle}
-                            disabled={settingsLoading}
-                            className="toggle"
-                        />
-                        <span>Absenz nicht speichern (nur lokal generieren)</span>
-                    </div>
-                    {settingsLoading && (
-                        <div className="loading loading-spinner loading-sm">
-                            <span>Einstellungen werden gespeichert...</span>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b border-base-300 text-left font-mono text-[11px] uppercase tracking-wider text-base-content/40">
+                                        <SortTh label="Datum" active={sortKey === "date"} dir={sortDir} onClick={() => toggleSort("date")} />
+                                        <SortTh label="Grund" active={sortKey === "reason"} dir={sortDir} onClick={() => toggleSort("reason")} />
+                                        <th className="px-5 py-3 font-semibold">Formular</th>
+                                        <th className="px-5 py-3 font-semibold">Erstellt</th>
+                                        <th className="px-5 py-3" />
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredPdfs.length === 0 && (
+                                        <tr><td colSpan={5} className="px-5 py-12 text-center text-base-content/40">Nichts gefunden.</td></tr>
+                                    )}
+                                    {filteredPdfs.map((pdf) => (
+                                        <tr key={pdf.id} className="border-b border-base-200 transition-colors last:border-0 hover:bg-base-200/50">
+                                            <td className="px-5 py-3.5 font-medium">{formatDate(pdf.date_of_absence)}</td>
+                                            <td className="px-5 py-3.5">
+                                                <span className="inline-flex items-center gap-2.5">
+                                                    <span className="h-2 w-2 rounded-full bg-[#7FD8B8]" />
+                                                    {pdf.reason}
+                                                </span>
+                                            </td>
+                                            <td className="px-5 py-3.5">
+                                                <a
+                                                    href="#"
+                                                    onClick={async (event) => {
+                                                        event.preventDefault();
+                                                        const pdfBlob = await getPdf(pdf);
+                                                        if (pdfBlob) viewPdf(pdfBlob);
+                                                    }}
+                                                    className="font-medium text-primary underline-offset-2 hover:underline"
+                                                >
+                                                    {pdf.pdf_name}
+                                                </a>
+                                            </td>
+                                            <td className="px-5 py-3.5 text-base-content/50">{formatDate(pdf.created_at)}</td>
+                                            <td className="px-5 py-3.5">
+                                                <div className="flex justify-end gap-2">
+                                                    <button
+                                                        onClick={async (event) => {
+                                                            event.preventDefault();
+                                                            const pdfBlob = await getPdf(pdf);
+                                                            if (pdfBlob) downloadPDF(pdfBlob, pdf);
+                                                        }}
+                                                        title="PDF herunterladen"
+                                                        className="inline-flex items-center gap-1 rounded-full border border-base-300 bg-base-100 px-3 py-1.5 text-xs font-semibold shadow-soft-sm transition-transform hover:bg-base-200 active:scale-95"
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-3.5 w-3.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" /></svg>
+                                                        PDF
+                                                    </button>
+                                                    <button
+                                                        onClick={async (event) => {
+                                                            event.preventDefault();
+                                                            if (confirm("Bist du sicher, dass du diese Absenz löschen möchtest?")) {
+                                                                await deletePdf(pdf);
+                                                            }
+                                                        }}
+                                                        aria-label="Löschen"
+                                                        title="PDF löschen"
+                                                        className="grid h-[30px] w-[30px] place-items-center rounded-full text-base-content/50 transition-colors hover:bg-error/10 hover:text-error active:scale-90"
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4"><path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-7 0v12a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V7" /></svg>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                            <div className="flex justify-center border-t border-base-300 px-5 py-3">
+                                <a className="text-sm font-semibold text-base-content/60 hover:text-base-content" href="/absences">Alle Absenzen anzeigen →</a>
+                            </div>
                         </div>
                     )}
                 </div>
-            </div>
 
-            <div className="card bg-base-100 shadow-xl lg:col-span-3">
-                <div className="card-body">
-                    <h2 className="card-title mb-4">Letzte Absenzen</h2>
-                    <div className="overflow-x-auto">
-                        <table className="table table-zebra w-full">
-                            <thead>
-                            <tr>
-                                <th>Datum</th>
-                                <th>Grund</th>
-                                <th>Formular</th>
-                                <th>Erstellt am</th>
-                                <th>Aktionen</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {pdfs.slice(0, 5).map((pdf) => (
-                                <tr key={pdf.id}>
-                                    <td>
-                                        <span className="font-medium">
-                                            {formatDate(pdf.date_of_absence)}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {pdf.reason}
-                                    </td>
-                                    <td>
-                                        <a
-                                            onClick={async (event) => {
-                                                event.preventDefault();
-                                                const pdfBlob = await getPdf(pdf);
-                                                if (pdfBlob) viewPdf(pdfBlob);
-                                            }}
-                                            className="link link-primary hover:link-hover"
-                                            href="#"
-                                        >
-                                            {pdf.pdf_name}
-                                        </a>
-                                    </td>
-                                    <td className="text-sm text-gray-500">
-                                        {formatDate(pdf.created_at)}
-                                    </td>
-                                    <td>
-                                        <div className="flex gap-2">
-                                            <button
-                                                className="btn btn-xs btn-secondary"
-                                                onClick={async (event) => {
-                                                    event.preventDefault();
-                                                    const pdfBlob = await getPdf(pdf);
-                                                    if (pdfBlob) downloadPDF(pdfBlob, pdf);
-                                                }}
-                                                title="PDF herunterladen"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                                                </svg>
-                                                Download
-                                            </button>
-                                            <button
-                                                className="btn btn-xs btn-error"
-                                                onClick={async (event) => {
-                                                    event.preventDefault();
-                                                    if (confirm("Bist du sicher, dass du diese Absenz löschen möchtest?")) {
-                                                        await deletePdf(pdf);
-                                                    }
-                                                }}
-                                                title="PDF löschen"
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                                                </svg>
-                                                Löschen
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                            </tbody>
-                        </table>
-                    </div>
-                    {pdfs.length === 0 ? (
-                        <div className="text-center mt-4">
-                            <p className="text-gray-500">Keine Absenzen gefunden</p>
+                {/* rechte Spalte */}
+                <div className="flex flex-col gap-5">
+                    <div className="card bg-base-100 p-5 shadow-soft-sm ring-1 ring-base-300/70">
+                        <h3 className="mb-4 text-base font-bold">Schnell-Einstellungen</h3>
+                        <div className="flex flex-col gap-4">
+                            <SettingRow label="Lehrpersonen ausschreiben" desc="Vollständige Namen statt Kürzel" on={isFullNameEnabled} disabled={settingsLoading} onChange={handleFullNameToggle} />
+                            <SettingRow label="Fächer ausschreiben" desc="Module bleiben abgekürzt" on={isFullSubjectEnabled} disabled={settingsLoading} onChange={handleFullSubjectToggle} />
+                            <SettingRow label="Lokaler Modus" desc="Absenz nicht auf Absendo speichern" on={isDoNotSaveEnabled} disabled={settingsLoading} onChange={handleDoNotSaveToggle} />
                         </div>
-                    ) : (
-                        <div className="card-actions justify-center mt-4">
-                            <a className="btn btn-outline" href="/absences">Alle Absenzen anzeigen</a>
+                        <a href="/profile" className="btn btn-ghost btn-sm mt-5">Zu deinem Profil</a>
+                    </div>
+
+                    {pdfs.length > 0 && (
+                        <div className="card bg-base-100 p-5 shadow-soft-sm ring-1 ring-base-300/70">
+                            <h3 className="mb-4 text-base font-bold">Aktivität</h3>
+                            <div className="flex flex-col gap-3.5">
+                                {pdfs.slice(0, 4).map((pdf, i) => (
+                                    <div key={pdf.id} className="flex gap-3">
+                                        <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full" style={{ background: ["#FF6B35", "#B8A7FF", "#7FD8B8", "#FFD466"][i % 4] }} />
+                                        <div className="flex-1">
+                                            <div className="text-[13px] font-medium">PDF erstellt</div>
+                                            <div className="truncate text-xs text-base-content/50">{pdf.reason}</div>
+                                        </div>
+                                        <div className="text-[11px] text-base-content/40">{relTime(pdf.created_at)}</div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </div>
             </div>
         </div>
     );
+}
+
+/* --- Sub-Komponenten --- */
+
+function StatCard({ color, bg, label, sub, value, icon }: { color: string; bg: string; label: string; sub: string; value: ReactNode; icon: ReactNode }) {
+    return (
+        <div className="card bg-base-100 p-5 shadow-soft-sm ring-1 ring-base-300/70">
+            <div className="mb-4 icon-tile" style={{ background: bg, color }}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" className="h-5 w-5">{icon}</svg>
+            </div>
+            <div className="font-mono text-3xl font-bold tabular-nums tracking-tight">{value}</div>
+            <div className="mt-2 text-[13px] font-semibold">{label}</div>
+            <div className="mt-0.5 truncate text-xs text-base-content/50">{sub}</div>
+        </div>
+    );
+}
+
+function SortTh({ label, active, dir, onClick }: { label: string; active: boolean; dir: "asc" | "desc"; onClick: () => void }) {
+    return (
+        <th className="cursor-pointer select-none px-5 py-3 font-semibold transition-colors hover:text-base-content" onClick={onClick}>
+            <span className={["inline-flex items-center gap-1.5", active ? "text-base-content" : ""].join(" ")}>
+                {label}
+                <svg viewBox="0 0 20 20" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: active ? 1 : 0.35, transform: active && dir === "asc" ? "scaleY(-1)" : undefined }}>
+                    <path d="M6 4v12M3 13l3 3 3-3" />
+                </svg>
+            </span>
+        </th>
+    );
+}
+
+function SettingRow({ label, desc, on, disabled, onChange }: { label: string; desc: string; on: boolean; disabled?: boolean; onChange: (v: boolean) => void }) {
+    return (
+        <label className="flex cursor-pointer items-start gap-3">
+            <div className="flex-1">
+                <div className="text-[13px] font-semibold">{label}</div>
+                <div className="text-xs text-base-content/50">{desc}</div>
+            </div>
+            <input type="checkbox" className="toggle toggle-primary toggle-sm mt-0.5" checked={on} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+        </label>
+    );
+}
+
+function relTime(iso: string): string {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const days = Math.round((Date.now() - d.getTime()) / 86_400_000);
+    if (days <= 0) return "heute";
+    if (days === 1) return "gestern";
+    if (days < 7) return `vor ${days} T.`;
+    return `vor ${Math.floor(days / 7)} W.`;
 }
 
 export default DashboardContent;

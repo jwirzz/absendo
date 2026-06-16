@@ -9,35 +9,35 @@ function Support() {
 
             <main className="flex-1 px-4 py-14 md:py-20">
                 <section className="mx-auto max-w-4xl">
-                    <div className="card border border-base-300 bg-base-200 shadow-sm">
-                        <div className="card-body gap-6 p-8 md:p-10">
-                            <span className="badge badge-primary badge-outline w-fit">Support</span>
+                    <div className="card bg-base-200 p-8 shadow-soft md:p-10">
+                        <div className="flex flex-col gap-6">
+                            <span className="pill pill-soft w-fit">Support</span>
 
-                            <h1 className="text-3xl font-bold md:text-4xl">
+                            <h1 className="display-md">
                                 Hilf mit, Absendo am Laufen zu halten
                             </h1>
 
-                            <p className="text-base-content/80">
+                            <p className="measure text-base-content/70">
                                 Absendo bleibt kostenlos. Wenn du das Projekt unterstützen willst, hilft ein kleiner
                                 Beitrag direkt bei den laufenden Kosten für Server, Datenbank, Monitoring und Domain.
                             </p>
 
                             <div className="grid gap-4 md:grid-cols-3">
-                                <article className="rounded-box border border-base-300 bg-base-100 p-4">
-                                    <h2 className="font-semibold">Server</h2>
-                                    <p className="mt-1 text-sm text-base-content/75">
+                                <article className="card bg-base-100 p-5 shadow-soft-sm ring-1 ring-base-300/70">
+                                    <h2 className="font-bold">Server</h2>
+                                    <p className="mt-1 text-sm text-base-content/60">
                                         Hosting und API Betrieb
                                     </p>
                                 </article>
-                                <article className="rounded-box border border-base-300 bg-base-100 p-4">
-                                    <h2 className="font-semibold">Datenbank</h2>
-                                    <p className="mt-1 text-sm text-base-content/75">
+                                <article className="card bg-base-100 p-5 shadow-soft-sm ring-1 ring-base-300/70">
+                                    <h2 className="font-bold">Datenbank</h2>
+                                    <p className="mt-1 text-sm text-base-content/60">
                                         Profil und Feedback Daten
                                     </p>
                                 </article>
-                                <article className="rounded-box border border-base-300 bg-base-100 p-4">
-                                    <h2 className="font-semibold">Monitoring</h2>
-                                    <p className="mt-1 text-sm text-base-content/75">
+                                <article className="card bg-base-100 p-5 shadow-soft-sm ring-1 ring-base-300/70">
+                                    <h2 className="font-bold">Monitoring</h2>
+                                    <p className="mt-1 text-sm text-base-content/60">
                                         Stabilität und Uptime
                                     </p>
                                 </article>

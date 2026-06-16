@@ -1,117 +1,143 @@
 import { secureLogout, useIsUserLoggedIn } from "../supabaseClient.ts";
 import { trackEvent } from "../utils/umami.ts";
-import { useState, useEffect } from "react";
-import ChangelogModal from "./ChangelogModal";
+import { useState, useEffect, type ReactNode } from "react";
 
-const CHANGELOG_VERSION = "2.0.0";
+function Logo() {
+    return (
+        <a className="inline-flex items-center gap-2" href="/" onClick={() => trackEvent("click_nav_home")}>
+            <img src="/logo.png" alt="Absendo Logo" className="h-7 w-7" />
+            <span className="text-lg font-bold tracking-tight">Absendo</span>
+        </a>
+    );
+}
+
+function Kbd({ children }: { children: ReactNode }) {
+    return <span className="ml-1 hidden rounded-md border border-current/30 px-1.5 py-0.5 font-mono text-[10px] leading-none opacity-70 sm:inline">{children}</span>;
+}
 
 function Navbar() {
     const isUserLoggedIn = useIsUserLoggedIn();
-    const [changelogOpen, setChangelogOpen] = useState(false);
-    const [hasUnreadChangelog, setHasUnreadChangelog] = useState(false);
+    const [path, setPath] = useState("");
 
     useEffect(() => {
-        const seenVersion = localStorage.getItem("changelog_seen_version");
-        setHasUnreadChangelog(seenVersion !== CHANGELOG_VERSION);
+        setPath(window.location.pathname);
     }, []);
 
-    const handleChangelogClose = () => {
-        setChangelogOpen(false);
-        localStorage.setItem("changelog_seen_version", CHANGELOG_VERSION);
-        setHasUnreadChangelog(false);
+    // App-Header nur eingeloggt; die Demo zeigt denselben Marketing-Header wie die Landingpage
+    const appMode = isUserLoggedIn;
+
+    const triggerNewAbsence = () => {
+        trackEvent("click_new_absence_nav");
+        if (path === "/dashboard" || path === "/demo") {
+            window.dispatchEvent(new CustomEvent("absendo:new-absence"));
+        } else {
+            window.location.assign("/dashboard#neue-absenz");
+        }
+    };
+
+    // Tastenkürzel N (wie im Design: nur im App-Modus, nicht beim Tippen)
+    useEffect(() => {
+        if (!appMode) return;
+        const onKey = (e: KeyboardEvent) => {
+            const target = e.target as HTMLElement | null;
+            const tag = target?.tagName ?? "";
+            if (
+                e.key.toLowerCase() === "n" &&
+                !e.metaKey && !e.ctrlKey && !e.altKey &&
+                !["INPUT", "TEXTAREA", "SELECT"].includes(tag) &&
+                !target?.isContentEditable
+            ) {
+                e.preventDefault();
+                triggerNewAbsence();
+            }
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [appMode, path]);
+
+    const navTab = (href: string, label: string, event: string) => {
+        const active = path === href;
+        return (
+            <a
+                href={href}
+                aria-current={active ? "page" : undefined}
+                onClick={() => trackEvent(event)}
+                className={[
+                    "rounded-full px-3.5 py-2 text-sm font-medium transition-colors duration-150",
+                    active ? "bg-secondary text-secondary-content" : "text-base-content/70 hover:bg-base-200 hover:text-base-content",
+                ].join(" ")}
+            >
+                {label}
+            </a>
+        );
     };
 
     return (
-        <>
-            <header className="sticky top-0 z-50 border-b border-base-300 bg-base-100/90 backdrop-blur">
-                <div className="navbar mx-auto max-w-7xl px-4 md:px-6">
-                    <div className="navbar-start gap-2">
-                        <a
-                            className="btn btn-ghost px-2 text-xl font-bold normal-case"
-                            href="/"
-                            onClick={() => trackEvent("click_nav_home")}
-                        >
-                            Absendo
-                        </a>
-                        <div className="indicator hidden md:inline-flex">
-                            {hasUnreadChangelog && (
-                                <span className="badge badge-xs badge-error indicator-item"></span>
-                            )}
-                            <button
-                                className="btn btn-ghost btn-circle btn-sm"
-                                onClick={() => {
-                                    setChangelogOpen(true);
-                                    trackEvent("click_nav_changelog");
-                                }}
-                                title="Neue Änderungen anzeigen"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-
-                <div className="navbar-center hidden lg:flex">
-                    <ul className="menu menu-horizontal gap-1 px-1">
-                        <li>
-                            <a href="/bbzw-absenzformular" onClick={() => trackEvent("click_nav_bbzw")}>
-                                BBZW
-                            </a>
-                        </li>
-                        <li>
-                            <a href="/contact" onClick={() => trackEvent("click_nav_contact")}>
-                                Kontakt
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-
-                <div className="navbar-end gap-2">
-                    {!isUserLoggedIn ? (
+        <header className="sticky top-0 z-50 border-b border-base-300 bg-base-100/80 backdrop-blur-md">
+                <div className="mx-auto flex h-[68px] max-w-7xl items-center justify-between gap-4 px-4 md:px-6">
+                    {appMode ? (
                         <>
-                            <a
-                                className="btn btn-ghost btn-sm md:btn-md"
-                                href="/login"
-                                onClick={() => trackEvent("click_nav_login")}
-                            >
-                                Login
-                            </a>
-                            <a
-                                className="btn btn-primary btn-sm md:btn-md"
-                                href="/signup"
-                                onClick={() => trackEvent("click_nav_signup")}
-                            >
-                                Kostenlos starten
-                            </a>
+                            {/* Links: Logo + Neue Absenz + Glocke */}
+                            <div className="flex items-center gap-2 sm:gap-3">
+                                <Logo />
+                                <button
+                                    className="btn btn-primary btn-sm gap-1"
+                                    onClick={triggerNewAbsence}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" className="h-4 w-4">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />
+                                    </svg>
+                                    <span className="hidden sm:inline">Neue Absenz</span>
+                                    <Kbd>N</Kbd>
+                                </button>
+                            </div>
+
+                            {/* Rechts: Dashboard + Profil */}
+                            <nav className="flex items-center gap-1">
+                                {navTab("/dashboard", "Dashboard", "click_nav_dashboard")}
+                                {navTab("/profile", "Profil", "click_nav_profile")}
+                                {isUserLoggedIn && (
+                                    <button
+                                        className="ml-1 rounded-full px-3.5 py-2 text-sm font-medium text-error transition-colors hover:bg-error/10"
+                                        onClick={() =>
+                                            secureLogout().then(() => {
+                                                trackEvent("click_nav_logout");
+                                                window.location.href = "/home";
+                                            })
+                                        }
+                                    >
+                                        Logout
+                                    </button>
+                                )}
+                            </nav>
                         </>
                     ) : (
                         <>
-                            <a
-                                className="btn btn-ghost btn-sm md:btn-md"
-                                href="/dashboard"
-                                onClick={() => trackEvent("click_nav_dashboard")}
-                            >
-                                Dashboard
-                            </a>
-                            <button
-                                className="btn btn-outline btn-error btn-sm md:btn-md"
-                                onClick={() =>
-                                    secureLogout().then(() => {
-                                        trackEvent("click_nav_logout");
-                                        window.location.href = "/home";
-                                    })
-                                }
-                            >
-                                Logout
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <Logo />
+                            </div>
+
+                            <nav className="hidden items-center gap-1 lg:flex">
+                                {navTab("/demo", "Demo", "click_nav_demo")}
+                                {navTab("/contact", "Kontakt", "click_nav_contact")}
+                            </nav>
+
+                            <div className="flex items-center gap-2">
+                                <a className="btn btn-ghost btn-sm md:btn-md" href="/login" onClick={() => trackEvent("click_nav_login")}>
+                                    Anmelden
+                                </a>
+                                <a className="btn btn-primary btn-sm md:btn-md gap-1.5" href="/signup" onClick={() => trackEvent("click_nav_signup")}>
+                                    Los geht's
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="h-4 w-4">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
+                                    </svg>
+                                </a>
+                            </div>
                         </>
                     )}
                 </div>
-            </div>
         </header>
-        <ChangelogModal isOpen={changelogOpen} onClose={handleChangelogClose} />
-        </>
     );
 }
 

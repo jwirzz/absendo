@@ -28,7 +28,7 @@ function AllAbsences () {
     }
 
     const AllAbsencesContent = () => (
-        <div className="min-h-screen bg-base-100">
+        <div className="min-h-screen bg-base-200/40">
             <Navbar />
             <AllAbsencesComponent />
         </div>
@@ -39,11 +39,11 @@ function AllAbsences () {
             <AllAbsencesContent />
         </AuthWrapper>
     ) : (
-        <div className="min-h-screen bg-base-100">
+        <div className="min-h-screen bg-base-200/40">
             <Navbar />
-            <div className="flex flex-col items-center justify-center py-10">
-                <h1 className="text-2xl font-bold">Please log in to access the dashboard</h1>
-                <a href="/login" className="btn btn-primary mt-4">Login</a>
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+                <h1 className="text-2xl font-bold">Bitte melde dich an, um deine Absenzen zu sehen.</h1>
+                <a href="/login" className="btn btn-primary mt-4">Zum Login</a>
             </div>
         </div>
     );

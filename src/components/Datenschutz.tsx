@@ -14,7 +14,7 @@ export default function Datenschutz() {
                 <p>
                     Verantwortlich für die Datenverarbeitung ist:<br/>
                     <strong>Jonathan Wirz</strong><br/>
-                    E-Mail: <a href="mailto:jonathan@absendo.app" className="text-blue-600 underline">jonathan@absendo.app</a>
+                    E-Mail: <a href="mailto:hello@absendo.app" className="text-blue-600 underline">hello@absendo.app</a>
                 </p>
             </section>
 
@@ -79,7 +79,7 @@ export default function Datenschutz() {
             <section className="mb-6">
                 <h2 className="text-2xl font-semibold mb-2">8. Ihre Rechte als betroffene Person</h2>
                 <p className="mb-2">
-                    Gemäss dem Schweizer Datenschutzgesetz (DSG) haben Sie verschiedene Rechte in Bezug auf Ihre persönlichen Daten. Um eines dieser Rechte auszuüben, kontaktieren Sie uns bitte per E-Mail unter <a href="mailto:jonathan@absendo.app" className="text-blue-600 underline">jonathan@absendo.app</a>.
+                    Gemäss dem Schweizer Datenschutzgesetz (DSG) haben Sie verschiedene Rechte in Bezug auf Ihre persönlichen Daten. Um eines dieser Rechte auszuüben, kontaktieren Sie uns bitte per E-Mail unter <a href="mailto:hello@absendo.app" className="text-blue-600 underline">hello@absendo.app</a>.
                 </p>
                 <ul className="list-disc ml-6">
                     <li>Recht auf Auskunft</li>

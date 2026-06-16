@@ -1,47 +1,38 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { lazy, Suspense } from "react";
-import RouteSeo from "./components/RouteSeo.tsx";
-import UmamiPageTracker from "./components/UmamiPageTracker.tsx";
+import type { RouteRecord } from "vite-react-ssg";
+import type { ComponentType } from "react";
+import { Navigate } from "react-router-dom";
+import RootLayout from "./components/RootLayout.tsx";
 
-const Home = lazy(() => import("./pages/Home.tsx"));
-const Login = lazy(() => import("./pages/Login.tsx"));
-const Signup = lazy(() => import("./pages/Signup.tsx"));
-const Onboarding = lazy(() => import("./pages/Onboarding.tsx"));
-const EmailVerification = lazy(() => import("./pages/EmailVerification.tsx"));
-const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
-const Contact = lazy(() => import("./pages/Contact.tsx"));
-const Profile = lazy(() => import("./pages/Profile.tsx"));
-const AllAbsences = lazy(() => import("./pages/AllAbsences.tsx"));
-const DatenschutzPage = lazy(() => import("./pages/DatenschutzPage.tsx"));
-const BbzwAbsenzformular = lazy(() => import("./pages/BbzwAbsenzformular.tsx"));
-const Support = lazy(() => import("./pages/Support.tsx"));
+// vite-react-ssg lädt diese Module zur Build-Zeit (await), bevor es die Seite
+// vorrendert – React.lazy/Suspense würde bei renderToString fehlschlagen. Wir
+// mappen den Default-Export der Seiten auf die von react-router erwartete
+// `Component`-Konvention.
+type PageModule = { default: ComponentType };
+const page = (importer: () => Promise<PageModule>) => async () => ({
+    Component: (await importer()).default
+});
 
-const Loading = () => <div className="flex justify-center items-center h-screen">Lade...</div>;
-
-function AppRoutes() {
-    return (
-        <Router>
-            <RouteSeo />
-            <UmamiPageTracker />
-            <Suspense fallback={<Loading />}>
-                <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/home" element={<Navigate to="/" replace />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/signup" element={<Signup />} />
-                    <Route path="/welcome" element={<Onboarding />} />
-                    <Route path="/email-verification" element={<EmailVerification />} />
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/contact" element={<Contact />} />
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="/absences" element={<AllAbsences />} />
-                    <Route path="/datenschutz" element={<DatenschutzPage />} />
-                    <Route path="/bbzw-absenzformular" element={<BbzwAbsenzformular />} />
-                    <Route path="/support" element={<Support />} />
-                </Routes>
-            </Suspense>
-        </Router>
-    );
-}
-
-export default AppRoutes;
+export const routes: RouteRecord[] = [
+    {
+        path: "/",
+        element: <RootLayout />,
+        children: [
+            { index: true, lazy: page(() => import("./pages/Home.tsx")) },
+            { path: "home", element: <Navigate to="/" replace /> },
+            { path: "login", lazy: page(() => import("./pages/Login.tsx")) },
+            { path: "signup", lazy: page(() => import("./pages/Signup.tsx")) },
+            { path: "welcome", lazy: page(() => import("./pages/Onboarding.tsx")) },
+            { path: "email-verification", lazy: page(() => import("./pages/EmailVerification.tsx")) },
+            { path: "dashboard", lazy: page(() => import("./pages/Dashboard.tsx")) },
+            { path: "contact", lazy: page(() => import("./pages/Contact.tsx")) },
+            { path: "profile", lazy: page(() => import("./pages/Profile.tsx")) },
+            { path: "absences", lazy: page(() => import("./pages/AllAbsences.tsx")) },
+            { path: "datenschutz", lazy: page(() => import("./pages/DatenschutzPage.tsx")) },
+            { path: "bbzw-absenzformular", lazy: page(() => import("./pages/BbzwAbsenzformular.tsx")) },
+            { path: "bbzw-absenzen-entschuldigen", lazy: page(() => import("./pages/BbzwAbsenzenEntschuldigen.tsx")) },
+            { path: "support", lazy: page(() => import("./pages/Support.tsx")) },
+            { path: "demo", lazy: page(() => import("./pages/Demo.tsx")) },
+            { path: "*", lazy: page(() => import("./pages/NotFound.tsx")) }
+        ]
+    }
+];
