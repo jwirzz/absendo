@@ -21,7 +21,7 @@ Experience Absendo live: [https://absendo.app](https://absendo.app)
 
 This repository contains the **frontend** of the Absendo application, built with React and Vite. The backend is maintained in a separate repository:
 
-👉 [Absendo Backend Repository](https://github.com/notacodes/absendo-backend)
+👉 [Absendo Backend Repository](https://github.com/jwirzz/absendo-backend)
 
 ## 🛠️ Installation & Local Setup
 
@@ -37,7 +37,7 @@ To get a local copy of Absendo up and running for development, follow these step
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/notacodes/absendo-react.git
+git clone git@github.com:jwirzz/absendo.git
 cd absendo-react
 ```
 

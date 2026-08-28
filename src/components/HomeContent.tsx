@@ -122,7 +122,7 @@ function HomeContent() {
                         <Reveal as="article" delay={180} className="lg:col-span-3">
                             <FeatureCard color="#1a1a1f" bg="#eee9e0" metric="GitHub" metricLabel="offen & transparent"
                                 icon={<><path strokeLinecap="round" strokeLinejoin="round" d="M15 3h6v6" /><path strokeLinecap="round" strokeLinejoin="round" d="M10 14 21 3" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 14v7h-7M3 10 14 21" /></>}
-                                title="Open Source" body="Transparent entwickelt. Der Code liegt offen auf GitHub." href="https://github.com/notacodes/absendo" />
+                                title="Open Source" body="Transparent entwickelt. Der Code liegt offen auf GitHub." href="https://github.com/jwirzz/absendo" />
                         </Reveal>
                     </div>
                 </div>

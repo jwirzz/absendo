@@ -38,7 +38,7 @@ function Footer() {
                             <FooterLink href="/profile">Profil</FooterLink>
                         </FooterCol>
                         <FooterCol title="Ressourcen">
-                            <FooterLink href="https://github.com/notacodes/absendo" external>Open Source</FooterLink>
+                            <FooterLink href="https://github.com/jwirzz/absendo" external>Open Source</FooterLink>
                             <FooterLink href="https://absendo.betteruptime.com/" external>System Status</FooterLink>
                             <FooterLink href="/support">Support</FooterLink>
                         </FooterCol>
