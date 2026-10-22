@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import NewAbsenceModal from "./NewAbsenceModal.tsx";
-import { useUserProfile } from "../contexts/UserProfileContext.tsx";
+import { useUserProfile } from "../contexts/useUserProfile.ts";
 
 function DashboardHeader() {
     const [isModalOpen, setIsModalOpen] = useState(false);

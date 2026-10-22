@@ -1,5 +1,4 @@
 import ical from 'ical';
-import fs from 'fs';
 import { PDFDocument } from 'pdf-lib';
 import {supabase} from "../supabaseClient.ts";
 import teachersData from '../data/teachers24-25-bbzw.json';
@@ -68,7 +67,7 @@ async function getUserData(user_id) {
 
 async function getICALData(url) {
     try {
-        const response = await fetch(`https://api.absendo.app/proxy?url=${url}`);
+        const response = await fetch(`https://api.absendo.app/proxy?url=${encodeURIComponent(url)}`);
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -328,16 +327,6 @@ function buildEventKey(event) {
     return `${event.datum}|${event.fach}|${event.lehrer}|${event.klasse}`;
 }
 
-// To check the fields in the PDF
-async function processPDF() {
-    const formBytes = fs.readFileSync('Entschuldigung_Urlaubsgesuch_V2023_08_11.pdf');
-    const pdfDoc = await PDFDocument.load(formBytes);
-    const form = pdfDoc.getForm();
-    form.getFields().forEach(f => {
-        console.log(`${f.getName()} (${f.constructor.name})`);
-    });
-}
-
 function formatBirthday(birthday) {
     const date = new Date(birthday);
     const day = String(date.getDate()).padStart(2, '0');
@@ -404,36 +393,10 @@ async function fillForm(userData, processedEvents, form_data) {
 }
 
 async function savePdfInDB(pdfForm, userId, fileName, dateOfAbsence, reason) {
-    if (!(await checkUserIdExists(userId))) return;
+    if (!(await checkUserIdExists(userId))) throw new Error('Profil nicht gefunden, Absenz wurde nicht gespeichert');
 
-    const filePathBase = `${userId}/forms/`;
-    const extensionIndex = fileName.lastIndexOf('.');
-    const baseName = extensionIndex !== -1 ? fileName.substring(0, extensionIndex) : fileName;
-    const extension = extensionIndex !== -1 ? fileName.substring(extensionIndex) : '';
-
-    const { data: files, error } = await supabase.storage
-        .from('pdf-files')
-        .list(filePathBase);
-
-    if (error) {
-        console.error("Fehler beim Abrufen der Dateien:", error);
-        return;
-    }
-
-    const existingNames = new Set(files.map(f => f.name));
-
-    let counter = 0;
-    let uniqueFileName;
-    while (true) {
-        uniqueFileName = counter === 0
-            ? `${baseName}${extension}`
-            : `${baseName} (${counter})${extension}`;
-
-        if (!existingNames.has(uniqueFileName)) break;
-        counter++;
-    }
-
-    const filePath = `${filePathBase}${uniqueFileName}`;
+    // Random object name: the real file name and date stay encrypted in pdf_files.
+    const filePath = `${userId}/forms/${crypto.randomUUID()}.pdf`;
     const encryptionService = EncryptionService.getInstance();
     const encryptedFilePath = await encryptionService.encrypt({filePath: filePath}, userId);
     const encryptedDateOfAbsence = await encryptionService.encrypt({dateOfAbsence: dateOfAbsence}, userId);
@@ -441,14 +404,14 @@ async function savePdfInDB(pdfForm, userId, fileName, dateOfAbsence, reason) {
     const encryptedPdfName = await encryptionService.encrypt({pdfName: fileName}, userId);
 
     const pdf = await encryptionService.encryptBlob(pdfForm, userId)
-    const { data: uploadData, error: uploadError } = await supabase
+    const { error: uploadError } = await supabase
         .storage
         .from('pdf-files')
-        .upload(filePath, pdf, {
-            metadata: {
-                dateOfAbsence: dateOfAbsence
-            }
-        });
+        .upload(filePath, pdf, { contentType: 'application/octet-stream' });
+
+    if (uploadError) {
+        throw new Error(`PDF upload failed: ${uploadError.message}`);
+    }
 
     const { error: dbError } = await supabase
         .from('pdf_files')
@@ -461,11 +424,13 @@ async function savePdfInDB(pdfForm, userId, fileName, dateOfAbsence, reason) {
         })
 
     if (dbError) {
-        console.error('Fehler beim Speichern der Metadaten:', dbError)
-    }
-
-    if (uploadError) {
-        console.error("Fehler beim Hochladen:", uploadError);
+        const { error: cleanupError } = await supabase.storage
+            .from('pdf-files')
+            .remove([filePath]);
+        if (cleanupError) {
+            console.error('Failed to clean up PDF after metadata error:', cleanupError);
+        }
+        throw new Error(`PDF metadata save failed: ${dbError.message}`);
     }
 }
 

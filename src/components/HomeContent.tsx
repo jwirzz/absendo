@@ -205,9 +205,9 @@ function HomeContent() {
                     </Reveal>
 
                     <div className="mt-10 flex flex-col gap-3">
-                        {FAQ_ITEMS.map((item, i) => (
-                            <Reveal key={item.key} delay={i * 40}>
-                                <FaqCard {...item} defaultOpen={i === 0} />
+                        {FAQ_ITEMS.map(({ key, q, a }, i) => (
+                            <Reveal key={key} delay={i * 40}>
+                                <FaqCard q={q} a={a} defaultOpen={i === 0} />
                             </Reveal>
                         ))}
                     </div>

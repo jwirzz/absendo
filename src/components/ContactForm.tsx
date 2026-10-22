@@ -36,16 +36,14 @@ export default function ContactForm() {
         setIsSubmitting(true);
 
         try {
-            const { error } = await supabase
-                .from("feedback")
-                .insert([
-                    {
-                        name: formData.name.trim(),
-                        email: formData.email.trim(),
-                        grund: formData.grund,
-                        nachricht: formData.nachricht.trim()
-                    }
-                ]);
+            const { error } = await supabase.functions.invoke("submit-feedback", {
+                body: {
+                    name: formData.name.trim(),
+                    email: formData.email.trim(),
+                    grund: formData.grund,
+                    nachricht: formData.nachricht.trim()
+                }
+            });
 
             if (error) {
                 throw error;
@@ -55,7 +53,7 @@ export default function ContactForm() {
             setGesendet(true);
             setFormData(INITIAL_DATA);
         } catch (error) {
-            console.error("Fehler beim Senden an Supabase:", error);
+            console.error("Fehler beim Senden des Kontaktformulars:", error);
             trackEvent("contact_submit_error", { grund: formData.grund });
             setErrorMessage("Senden hat nicht geklappt. Bitte versuch es nochmal.");
         } finally {

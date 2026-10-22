@@ -47,6 +47,7 @@ interface FormData {
 }
 
 type CalendarDateElement = HTMLElement & { value?: string };
+type CalendarPopoverElement = HTMLElement & { hidePopover?: () => void };
 let isCallyLoaded = false;
 
 // Schritte: 1 Details · 2 Lektionen · 3 Generieren · 4 Download
@@ -178,8 +179,9 @@ function NewAbsenceModal({
             const target = event.target as CalendarDateElement;
             const nextDate = typeof target.value === "string" ? target.value : "";
             setFormData((prev) => (prev.date === nextDate ? prev : { ...prev, date: nextDate }));
-            if (calendarPopoverRef.current && typeof (calendarPopoverRef.current as any).hidePopover === "function") {
-                (calendarPopoverRef.current as any).hidePopover();
+            const calendarPopover = calendarPopoverRef.current as CalendarPopoverElement | null;
+            if (typeof calendarPopover?.hidePopover === "function") {
+                calendarPopover.hidePopover();
             }
         };
 

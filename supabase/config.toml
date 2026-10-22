@@ -1,0 +1,4 @@
+project_id = "absendo"
+
+[functions.submit-feedback]
+verify_jwt = false

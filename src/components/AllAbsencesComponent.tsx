@@ -55,13 +55,19 @@ function AllAbsencesComponent() {
                             const date_of_absence = await encryptionService.decryptField(pdf.date_of_absence, user.id);
                             const reason = await encryptionService.decryptField(pdf.reason, user.id);
                             const pdf_name = await encryptionService.decryptField(pdf.pdf_name, user.id);
-                            decryptedPdfs.push({
+                            const decryptedPdf: PdfFile = {
                                 ...pdf,
                                 file_path: file_path ?? "",
                                 date_of_absence: date_of_absence ?? "",
                                 reason: reason ?? "",
                                 pdf_name: pdf_name ?? "",
-                            });
+                            };
+                            decryptedPdfs.push(decryptedPdf);
+                            try {
+                                await encryptionService.migratePdfMetadataIfNeeded(pdf, decryptedPdf, user.id);
+                            } catch (migrationError) {
+                                console.error("Could not migrate PDF metadata:", migrationError);
+                            }
                         }
                         setPdfs(decryptedPdfs);
                     } catch (err) {
@@ -77,10 +83,29 @@ function AllAbsencesComponent() {
             .storage
             .from('pdf-files')
             .download(pdf.file_path);
-        if (!error) {
-            return data;
+        if (error || !data || !user?.id) {
+            console.error("Error downloading PDF:", error);
+            return undefined;
         }
-        console.log("Error downloading PDF:", error);
+
+        const encryptionService = EncryptionService.getInstance();
+        const wasLegacy = await encryptionService.isLegacyEncryptedBlob(data);
+        const decryptedPdf = await encryptionService.decryptBlob(data, user.id);
+
+        if (wasLegacy) {
+            void encryptionService.encryptBlob(decryptedPdf, user.id)
+                .then((migratedPdf) => supabase.storage
+                    .from("pdf-files")
+                    .upload(pdf.file_path, migratedPdf, { upsert: true, contentType: "application/octet-stream" }))
+                .then(({ error: migrationError }) => {
+                    if (migrationError) console.error("PDF encryption migration failed:", migrationError);
+                })
+                .catch((migrationError: unknown) => {
+                    console.error("PDF encryption migration failed:", migrationError);
+                });
+        }
+
+        return decryptedPdf;
     }
 
     function viewPdf(pdfBlob: Blob) {
@@ -102,21 +127,21 @@ function AllAbsencesComponent() {
     }
 
     async function deletePdf(pdf: PdfFile) {
-        const { error } = await supabase
-            .storage
-            .from('pdf-files')
-            .remove([pdf.file_path]);
-
-        const { status } = await supabase
+        const { error: databaseError } = await supabase
             .from('pdf_files')
             .delete()
             .eq('id', pdf.id);
 
-        if (!error && status === 204) {
-            setPdfs((prev) => prev.filter((p) => p.id !== pdf.id));
-        } else {
-            console.error("Fehler beim Löschen der PDF:", error);
+        if (databaseError) {
+            console.error("Fehler beim Löschen der PDF-Metadaten:", databaseError);
+            return;
         }
+
+        setPdfs((prev) => prev.filter((p) => p.id !== pdf.id));
+        const { error: storageError } = await supabase.storage
+            .from('pdf-files')
+            .remove([pdf.file_path]);
+        if (storageError) console.error("Verwaiste PDF-Datei konnte nicht entfernt werden:", storageError);
     }
 
     function formatDate(dateString: string) {

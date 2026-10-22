@@ -1,24 +1,14 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "../supabaseClient";
 import EncryptionService from "../services/encryptionService";
 import { UserProfile } from "../types/userProfile";
-
-interface UserProfileContextValue {
-    user: User | null;
-    profile: UserProfile | null;
-    loading: boolean;
-    error: string | null;
-    refreshProfile: () => Promise<void>;
-    updateProfileFields: (fields: Partial<UserProfile>) => Promise<void>;
-}
+import { UserProfileContext, type UserProfileContextValue } from "./userProfileContextValue";
 
 interface UserProfileProviderProps {
     user: User | null;
     children: React.ReactNode;
 }
-
-const UserProfileContext = createContext<UserProfileContextValue | undefined>(undefined);
 
 export function UserProfileProvider({ user, children }: UserProfileProviderProps) {
     const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -45,7 +35,21 @@ export function UserProfileProvider({ user, children }: UserProfileProviderProps
 
             if (profileError) throw profileError;
 
-            const decryptedData = encryptionService.decryptProfileData(data) as unknown as UserProfile;
+            const decryptedData = await encryptionService.decryptProfileData(data) as unknown as UserProfile;
+
+            if (encryptionService.profileNeedsMigration(data)) {
+                const migratedProfile = await encryptionService.encryptProfileData({
+                    ...decryptedData,
+                    id: user.id,
+                } as Record<string, unknown>);
+                const { error: migrationError } = await supabase
+                    .from("profiles")
+                    .update(migratedProfile)
+                    .eq("id", user.id);
+                if (migrationError) {
+                    console.error("Profile encryption migration failed:", migrationError);
+                }
+            }
             setProfile(decryptedData);
         } catch (fetchError) {
             const message = fetchError instanceof Error ? fetchError.message : "Profil konnte nicht geladen werden";
@@ -71,7 +75,7 @@ export function UserProfileProvider({ user, children }: UserProfileProviderProps
             throw fetchError;
         }
 
-        const currentProfile = encryptionService.decryptProfileData(data) as unknown as UserProfile;
+        const currentProfile = await encryptionService.decryptProfileData(data) as unknown as UserProfile;
         const updatedProfile: UserProfile = {
             ...currentProfile,
             ...fields,
@@ -111,12 +115,4 @@ export function UserProfileProvider({ user, children }: UserProfileProviderProps
             {children}
         </UserProfileContext.Provider>
     );
-}
-
-export function useUserProfile(): UserProfileContextValue {
-    const context = useContext(UserProfileContext);
-    if (!context) {
-        throw new Error("useUserProfile must be used inside UserProfileProvider");
-    }
-    return context;
 }

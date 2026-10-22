@@ -43,6 +43,8 @@ const AuthWrapper = ({ children, user }: AuthWrapperProps) => {
       );
 
       try {
+        await encryptionService.storeCurrentKey(user.id, rememberDevice);
+
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
@@ -57,7 +59,6 @@ const AuthWrapper = ({ children, user }: AuthWrapperProps) => {
 
         if (updateError) throw updateError;
 
-        encryptionService.storeCurrentKey(user.id, rememberDevice);
         setAuthState({
           isAuthenticated: true,
           needsPinSetup: false,
@@ -107,7 +108,7 @@ const AuthWrapper = ({ children, user }: AuthWrapperProps) => {
 
       if (isValidPin) {
         attemptManager.clearAttempts();
-        encryptionService.storeCurrentKey(user.id, rememberDevice);
+        await encryptionService.storeCurrentKey(user.id, rememberDevice);
         setAuthState({
           isAuthenticated: true,
           needsPinSetup: false,
@@ -142,7 +143,7 @@ const AuthWrapper = ({ children, user }: AuthWrapperProps) => {
       try {
         setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
   
-        if (encryptionService.isInitialized()) {
+        if (encryptionService.isInitializedForUser(user.id)) {
           setAuthState({
             isAuthenticated: true,
             needsPinSetup: false,
@@ -153,7 +154,7 @@ const AuthWrapper = ({ children, user }: AuthWrapperProps) => {
           return
         }
 
-        if (encryptionService.restoreKeyForUser(user.id)) {
+        if (await encryptionService.restoreKeyForUser(user.id)) {
           setAuthState({
             isAuthenticated: true,
             needsPinSetup: false,
@@ -174,7 +175,7 @@ const AuthWrapper = ({ children, user }: AuthWrapperProps) => {
           sessionStorage.removeItem("userPin");
 
           if (isLegacyPinValid) {
-            encryptionService.storeCurrentKey(user.id, true);
+            await encryptionService.storeCurrentKey(user.id, true);
             setAuthState({
               isAuthenticated: true,
               needsPinSetup: false,
