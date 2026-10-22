@@ -59,6 +59,10 @@ export default function Datenschutz() {
                 <p className="mb-2">
                     Wenn Sie sich dazu entscheiden, sich über Google oder GitHub bei unserer App anzumelden, übermitteln Sie dabei gewisse Daten an diese Anbieter. Die Verarbeitung dieser Daten unterliegt den jeweiligen Datenschutzbestimmungen von Google bzw. GitHub. Wir empfehlen Ihnen, deren Datenschutzerklärungen zu lesen.
                 </p>
+                <p className="mb-2 font-semibold">Webanalyse mit Umami</p>
+                <p className="mb-2">
+                    Um unsere Website zu verbessern, erfassen wir anonyme Nutzungsstatistiken mit Umami, einer Open-Source-Analysesoftware, die wir selbst unter analytics.jwirz.ch betreiben. Umami setzt keine Cookies und speichert keine IP-Adressen. Erfasst werden nur aufgerufene Seiten, Klicks auf einzelne Schaltflächen, die verweisende Website sowie Browser, Betriebssystem, Gerätetyp, Sprache und Land. Inhalte Ihrer Absenzen oder Ihres Profils werden dabei nie übermittelt. Die Daten lassen keinen Rückschluss auf Ihre Person zu und werden nicht an Dritte weitergegeben.
+                </p>
             </section>
 
             <section className="mb-6">

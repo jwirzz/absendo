@@ -83,6 +83,7 @@ export default function AbsendoOnboarding() {
     const [errors, setErrors] = useState<FormErrors>({});
     const [loading, setLoading] = useState<boolean>(false);
     const [complete, setComplete] = useState<boolean>(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
     const totalSteps = 3;
 
@@ -127,12 +128,12 @@ export default function AbsendoOnboarding() {
         return Object.keys(newErrors).length === 0;
     };
 
-    const nextStep = () => {
+    const nextStep = async () => {
         if (validateStep(step)) {
             if (step < totalSteps) {
                 setStep(step + 1);
             } else {
-                submitForm();
+                await submitForm();
             }
         }
     };
@@ -143,15 +144,18 @@ export default function AbsendoOnboarding() {
         }
     };
 
-    const submitForm = () => {
+    const submitForm = async () => {
         setLoading(true);
-
-        insertFormData(formData);
-
-        setTimeout(() => {
-            setLoading(false);
+        setSubmitError(null);
+        try {
+            await insertFormData(formData);
             setComplete(true);
-        }, 1500);
+        } catch (error) {
+            console.error('Fehler beim Speichern:', error);
+            setSubmitError("Dein Profil konnte nicht gespeichert werden. Bitte versuche es erneut.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     async function insertFormData(formData: FormData) {
@@ -166,11 +170,7 @@ export default function AbsendoOnboarding() {
             .from('profiles')
             .upsert(dataToStore, { onConflict: 'id' });
 
-        if (error) {
-            console.error('Fehler beim Speichern:', error);
-        } else {
-            console.log('Daten gespeichert (insert oder update)');
-        }
+        if (error) throw error;
     }
 
     return (
@@ -199,6 +199,7 @@ export default function AbsendoOnboarding() {
                             setErrors={setErrors}
                             loading={loading}
                             complete={complete}
+                            submitError={submitError}
                             totalSteps={totalSteps}
                             handleChange={handleChange}
                             validateStep={validateStep}
@@ -230,10 +231,11 @@ interface OnboardingContentProps {
     setErrors: (errors: FormErrors) => void;
     loading: boolean;
     complete: boolean;
+    submitError: string | null;
     totalSteps: number;
     handleChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
     validateStep: (stepNumber: number) => boolean;
-    nextStep: () => void;
+    nextStep: () => Promise<void>;
     prevStep: () => void;
     submitForm: () => void;
 }
@@ -246,6 +248,7 @@ const OnboardingContent: React.FC<OnboardingContentProps> = ({
                                                                  errors,
                                                                  loading,
                                                                  complete,
+                                                                 submitError,
                                                                  totalSteps,
                                                                  handleChange,
                                                                  nextStep,
@@ -293,6 +296,11 @@ const OnboardingContent: React.FC<OnboardingContentProps> = ({
                 </div>
             ) : (
                 <form onSubmit={(e) => e.preventDefault()}>
+                    {submitError && (
+                        <div className="alert alert-error mb-5" role="alert">
+                            {submitError}
+                        </div>
+                    )}
                     <div key={step} style={{ animation: "fadeFaq 0.25s var(--ease-out) both" }}>
                         {step === 1 && (
                             <div className="flex flex-col gap-4">

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import { trackPageView } from "../utils/umami.ts";
 
 const UMAMI_SCRIPT_SRC = "https://analytics.jwirz.ch/script.js";

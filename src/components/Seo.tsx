@@ -1,11 +1,10 @@
-import { Head } from "vite-react-ssg";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import { resolveMeta, SITE_NAME, SITE_URL } from "../seo/routeMeta";
 
 /**
- * Rendert alle SEO-relevanten <head>-Tags deklarativ. Über vite-react-ssg landen
- * Title, Description, Canonical, Robots, Open-Graph und JSON-LD bereits im
- * vorgerenderten HTML (Build-Zeit) und nicht erst nach der JS-Ausführung.
+ * Rendert alle SEO-relevanten <head>-Tags deklarativ. React 19 hebt title/meta/link
+ * in den <head>, beim Prerendern von React Router landen sie so bereits im
+ * statischen HTML (Build-Zeit) und nicht erst nach der JS-Ausführung.
  */
 export default function Seo() {
     const { pathname } = useLocation();
@@ -15,7 +14,7 @@ export default function Seo() {
     const ogImage = new URL(meta.ogImage, SITE_URL).toString();
 
     return (
-        <Head>
+        <>
             <title>{meta.title}</title>
             <meta name="description" content={meta.description} />
             <meta name="robots" content={meta.robots} />
@@ -36,6 +35,6 @@ export default function Seo() {
             {meta.jsonLd && (
                 <script type="application/ld+json">{JSON.stringify(meta.jsonLd)}</script>
             )}
-        </Head>
+        </>
     );
 }

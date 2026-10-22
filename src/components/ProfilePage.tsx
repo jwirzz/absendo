@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "../supabaseClient.ts";
 import EncryptionService from "../services/encryptionService.ts";
-import { useUserProfile } from "../contexts/UserProfileContext.tsx";
+import { useUserProfile } from "../contexts/useUserProfile.ts";
 import { UserProfile } from "../types/userProfile.ts";
 
 export const ProfilePage = () => {
